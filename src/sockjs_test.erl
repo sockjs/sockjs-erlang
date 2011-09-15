@@ -47,8 +47,8 @@ ws_loop(Ws) ->
     Path = clean_path(Ws:get(path)),
     io:format("~s ~s~n", ["WS", Path]),
     Fun = dispatcher(string:tokens(Path, "/")),
-    do(Ws, Fun(init)),
     Ws:send(["o"]),
+    do(Ws, Fun(init)),
     ws_loop(Ws, Fun).
 
 ws_loop(Ws, Fun) ->
