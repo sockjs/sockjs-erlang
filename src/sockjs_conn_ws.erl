@@ -27,6 +27,7 @@ loop0(Ws, Fun, Self) ->
             Fun(Self, {recv, Decoded}),
             loop0(Ws, Fun, Self);
         closed ->
+            Fun(Self, client_closed),
             closed;
         Msg ->
             Fun(Self, {info, Msg}),
