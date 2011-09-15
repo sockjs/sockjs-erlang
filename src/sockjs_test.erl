@@ -47,33 +47,7 @@ ws_loop(Ws) ->
     Path = clean_path(Ws:get(path)),
     io:format("~s ~s~n", ["WS", Path]),
     Fun = dispatcher(string:tokens(Path, "/")),
-    Ws:send(["o"]),
-    do(Ws, Fun(init)),
-    ws_loop(Ws, Fun).
-
-ws_loop(Ws, Fun) ->
-    receive
-        {browser, Data} ->
-            Decoded = mochijson2:decode(Data),
-            do(Ws, Fun({recv, Decoded})),
-            ws_loop(Ws, Fun);
-        closed ->
-            closed;
-        Msg ->
-            do(Ws, Fun({info, Msg})),
-            ws_loop(Ws, Fun)
-    end.
-
-%% TODO brand new and already wrong
-do(Ws, {send, Data}) ->
-    Ws:send(["m", enc(Data)]);
-do(Ws, {close, {Code, Reason}}) ->
-    Ws:send(["c", enc([Code, list_to_binary(Reason)])]),
-    exit(normal);
-do(_Ws, ignore) -> ok.
-
-enc(Thing) ->
-    iolist_to_binary(mochijson2:encode(Thing)).
+    sockjs_conn_ws:loop(Ws, Fun).
 
 dispatcher([Prefix, _Server, _Session, _Protocol]) ->
     case proplists:get_value(list_to_atom(Prefix), dispatcher()) of
@@ -81,27 +55,27 @@ dispatcher([Prefix, _Server, _Session, _Protocol]) ->
         Fun       -> Fun
     end.
 
-dispatcher() ->
-    [{echo,    fun test_echo/1},
-     {amplify, fun test_amplify/1},
-     {close,   fun test_close/1}].
-
 clean_path("/")         -> "index.html";
 clean_path("/" ++ Path) -> Path.
 
 %% --------------------------------------------------------------------------
 
-test_echo({recv, Data}) -> {send, Data};
-test_echo(_)            -> ignore.
+dispatcher() ->
+    [{echo,    fun test_echo/2},
+     {amplify, fun test_amplify/2},
+     {close,   fun test_close/2}].
 
-test_amplify({recv, Data}) ->
+test_echo(Conn, {recv, Data}) -> Conn:send(Data);
+test_echo(_Conn, _)           -> ok.
+
+test_amplify(Conn, {recv, Data}) ->
     N0 = list_to_integer(binary_to_list(Data)),
     N = if N0 > 0 andalso N0 < 19 -> N0;
            true                   -> 1
         end,
-    {send, string:copies("x", round(math:pow(2, N)))};
-test_amplify(_) ->
-    ignore.
+    Conn:send(string:copies("x", round(math:pow(2, N))));
+test_amplify(_Conn, _) ->
+    ok.
 
-test_close(_) ->
-    {close, {3000, "Go away!"}}.
+test_close(Conn, _) ->
+    Conn:close(3000, "Go away!").
