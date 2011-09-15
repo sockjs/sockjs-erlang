@@ -1,4 +1,4 @@
-ERLC_OPTS=-o ebin
+ERLC_OPTS=-W -I include -o ebin
 SOURCES=$(wildcard src/*.erl)
 BEAM_TARGETS=$(patsubst src/%.erl, ebin/%.beam, $(SOURCES))
 
@@ -12,10 +12,7 @@ test-prep: deps/sockjs-client deps/misultin priv/www
 	make -C deps/sockjs-client tests/html/lib/sockjs.js tests/html/lib/tests.js
 	make -C deps/misultin
 
-ebin:
-	mkdir ebin
-
-ebin/%.beam: src/%.erl ebin
+ebin/%.beam: src/%.erl
 	erlc $(ERLC_OPTS) -pa ebin $<
 
 priv:
