@@ -41,7 +41,7 @@ module_path() ->
 config_js(Req) ->
     %% TODO parse the file? Good luck, it's JS not JSON.
     Req:respond(200, [{"content-type", "application/javascript"}],
-                "var client_opts = {\"url\":\"http://localhost:8080\",\"disabled_transports\":[],\"sockjs_opts\":{\"devel\":true}};").
+                "var client_opts = {\"url\":\"http://localhost:8080\",\"disabled_transports\":[],\"sockjs_opts\":{\"devel\":true, \"chunking\":true}};").
 
 ws_loop(Ws) ->
     Path = clean_path(Ws:get(path)),
