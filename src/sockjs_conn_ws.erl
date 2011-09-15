@@ -5,11 +5,14 @@
 -export([send/2, close/3]).
 -export([loop/2]).
 
+%% TODO this has little in common with the other transports
+%% Where should framing happen?
+
 send(Data, {sockjs_conn_ws, Ws}) ->
-    Ws:send(["m", enc(Data)]).
+    Ws:send(["m", sockjs_util:enc(Data)]).
 
 close(Code, Reason, {sockjs_conn_ws, Ws}) ->
-    Ws:send(["c", enc([Code, list_to_binary(Reason)])]),
+    Ws:send(["c", sockjs_util:enc([Code, list_to_binary(Reason)])]),
     exit(normal). %% TODO ?
 
 %% --------------------------------------------------------------------------
@@ -34,7 +37,3 @@ loop0(Ws, Fun, Self) ->
             loop0(Ws, Fun, Self)
     end.
 
-%% --------------------------------------------------------------------------
-
-enc(Thing) ->
-    iolist_to_binary(mochijson2:encode(Thing)).

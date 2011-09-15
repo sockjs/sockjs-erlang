@@ -13,22 +13,20 @@ test-prep: deps/sockjs-client deps/misultin priv/www
 	make -C deps/misultin
 
 ebin/%.beam: src/%.erl
+	-mkdir -p ebin
 	erlc $(ERLC_OPTS) -pa ebin $<
 
-priv:
-	mkdir priv
-
-priv/www: priv
+priv/www:
+	-mkdir -p priv
 	ln -s ../deps/sockjs-client/tests/html priv/www
 
-deps:
-	mkdir deps
-
-deps/sockjs-client: deps
+deps/sockjs-client:
+	-mkdir -p deps
 	cd deps && \
 		git clone https://github.com/majek/sockjs-client.git
 
-deps/misultin: deps
+deps/misultin:
+	-mkdir -p deps
 	cd deps && \
 		git clone https://github.com/ostinelli/misultin.git
 

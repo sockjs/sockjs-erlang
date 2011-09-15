@@ -3,6 +3,7 @@
 
 start() ->
     Port = 8080,
+    sockjs_transport:init(),
     {ok, _} = misultin:start_link([{loop,        fun loop/1},
                                    {ws_loop,     fun ws_loop/1},
                                    {ws_autoexit, false},
@@ -21,9 +22,8 @@ loop(Req) ->
             {"static/" ++ _, _} -> static(Req, Path);
             {"lib/" ++ _, _}    -> static(Req, Path);
             {"config.js", _}    -> config_js(Req);
-            {_, _}              -> io:format("~s ~s~n",
-                                             [Req:get(method), Path]),
-                                   Req:respond(404, [], "404")
+            {_, _}              -> sockjs_transport:handle_req(
+                                     Req, Path, dispatcher())
         end
     catch A:B ->
             io:format("~s ~p ~p~n", [A, B, erlang:get_stacktrace()]),
@@ -46,14 +46,8 @@ config_js(Req) ->
 ws_loop(Ws) ->
     Path = clean_path(Ws:get(path)),
     io:format("~s ~s~n", ["WS", Path]),
-    Fun = dispatcher(string:tokens(Path, "/")),
+    {Fun, _, _, _} = sockjs_transport:dispatch(Path, dispatcher()),
     sockjs_conn_ws:loop(Ws, Fun).
-
-dispatcher([Prefix, _Server, _Session, _Protocol]) ->
-    case proplists:get_value(list_to_atom(Prefix), dispatcher()) of
-        undefined -> exit({unknown, Prefix});
-        Fun       -> Fun
-    end.
 
 clean_path("/")         -> "index.html";
 clean_path("/" ++ Path) -> Path.
@@ -76,6 +70,6 @@ test_amplify(Conn, {recv, Data}) ->
     N = if N0 > 0 andalso N0 < 19 -> N0;
            true                   -> 1
         end,
-    Conn:send(string:copies("x", round(math:pow(2, N))));
+    Conn:send(list_to_binary(string:copies("x", round(math:pow(2, N)))));
 test_amplify(_Conn, _) ->
     ok.
