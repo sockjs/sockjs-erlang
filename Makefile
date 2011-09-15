@@ -5,7 +5,7 @@ BEAM_TARGETS=$(patsubst src/%.erl, ebin/%.beam, $(SOURCES))
 all: $(BEAM_TARGETS)
 
 test: test-prep all
-	erl -pa ebin -pa deps/misultin/ebin -noinput -run sockjs_erlang_test
+	erl -pa ebin -pa deps/misultin/ebin -noinput -run sockjs_test
 
 test-prep: deps/sockjs-client deps/misultin priv/www
 	cd deps/sockjs-client && npm install

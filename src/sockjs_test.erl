@@ -1,4 +1,4 @@
--module(sockjs_erlang_test).
+-module(sockjs_test).
 -export([start/0]).
 
 start() ->
