@@ -62,11 +62,14 @@ clean_path("/" ++ Path) -> Path.
 
 dispatcher() ->
     [{echo,    fun test_echo/2},
-     {amplify, fun test_amplify/2},
-     {close,   fun test_close/2}].
+     {close,   fun test_close/2},
+     {amplify, fun test_amplify/2}].
 
 test_echo(Conn, {recv, Data}) -> Conn:send(Data);
 test_echo(_Conn, _)           -> ok.
+
+test_close(Conn, _) ->
+    Conn:close(3000, "Go away!").
 
 test_amplify(Conn, {recv, Data}) ->
     N0 = list_to_integer(binary_to_list(Data)),
@@ -76,6 +79,3 @@ test_amplify(Conn, {recv, Data}) ->
     Conn:send(string:copies("x", round(math:pow(2, N))));
 test_amplify(_Conn, _) ->
     ok.
-
-test_close(Conn, _) ->
-    Conn:close(3000, "Go away!").
