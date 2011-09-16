@@ -22,10 +22,13 @@ filters() ->
 %% --------------------------------------------------------------------------
 
 xhr_send(Req, _Server, SessionId, Receive) ->
-    Decoded = mochijson2:decode(Req:get(body)),
-    Sender = sockjs_session:sender(SessionId),
-    [Receive(Sender, {recv, Msg}) || Msg <- Decoded],
+    receive_body(Req:get(body), SessionId, Receive),
     Req:respond(204).
+
+receive_body(Body, SessionId, Receive) ->
+    Decoded = mochijson2:decode(Body),
+    Sender = sockjs_session:sender(SessionId),
+    [Receive(Sender, {recv, Msg}) || Msg <- Decoded].
 
 xhr_polling(Req, Server, SessionId, Receive) ->
     case sockjs_session:reply(SessionId) of
@@ -65,11 +68,9 @@ xhr_streaming0(Req, Server, SessionId, Receive) ->
 chunk(Req, Body) ->
     Req:chunk(<<Body/binary, $\n>>).
 
-jsonp_send(Req, Server, SessionId, Receive) ->
-    Body = proplists:get_value("d", Req:parse_post()),
-    Decoded = mochijson2:decode(Body),
-    Sender = sockjs_session:sender(SessionId),
-    [Receive(Sender, {recv, Msg}) || Msg <- Decoded],
+jsonp_send(Req, _Server, SessionId, Receive) ->
+    receive_body(proplists:get_value("d", Req:parse_post()),
+                 SessionId, Receive),
     Req:respond(200, "").
 
 jsonp(Req, Server, SessionId, Receive) ->
