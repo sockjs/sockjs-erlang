@@ -3,7 +3,7 @@
 
 start() ->
     Port = 8080,
-    sockjs_transport:init(),
+    application:start(sockjs),
     {ok, _} = misultin:start_link([{loop,        fun loop/1},
                                    {ws_loop,     fun ws_loop/1},
                                    {ws_autoexit, false},

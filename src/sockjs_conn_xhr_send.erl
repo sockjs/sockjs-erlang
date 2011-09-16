@@ -6,8 +6,9 @@
 
 handle_req(Req, _Server, SessionId, xhr_send, Fun) ->
     Decoded = mochijson2:decode(Req:get(body)),
-    sockjs_util:with_session(
-      fun (#session{receiver = Conn}) ->
-              [Fun(Conn, {recv, Msg}) || Msg <- Decoded]
+    sockjs_session:with(
+      fun (Session = #session{receiver = Conn}) ->
+              [Fun(Conn, {recv, Msg}) || Msg <- Decoded],
+              Session
       end, SessionId),
     Req:respond(204).

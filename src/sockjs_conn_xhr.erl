@@ -7,9 +7,6 @@
 -export([open/1, send/2, close/3]).
 -export([handle_req/5]).
 
-%% TODO this is buggy - nothing stops simultaneous modification of a
-%% session by two processes. And in Erlang too. How embarassing.
-
 %% TODO why are these here?
 
 open({?MODULE, SessionId}) ->
@@ -19,13 +16,13 @@ send(Data, {?MODULE, SessionId}) ->
     enqueue({data, Data}, SessionId).
 
 enqueue(Cmd, SessionId) ->
-    case sockjs_util:with_session(
-           fun (Session = #session{outbound_queue = Q}) ->
-                   Session#session{outbound_queue = queue:in(Cmd, Q)}
-           end, SessionId) of
-        #session{response_pid = P} when is_pid(P) -> P ! go;
-        _ -> ok
-    end.
+    sockjs_session:with(fun (S = #session{outbound_queue = Q,
+                                          response_pid   = P}) ->
+                                if is_pid(P) -> P ! go;
+                                   true      -> ok
+                                end,
+                                S#session{outbound_queue = queue:in(Cmd, Q)}
+                        end, SessionId).
 
 close(_Code, _Reason, {?MODULE, _Ws}) ->
     %% TODO why not go crazy and support this?
@@ -36,24 +33,21 @@ close(_Code, _Reason, {?MODULE, _Ws}) ->
 %% _Fun wut?
 
 handle_req(Req, Server, SessionId, xhr, Fun) ->
-    case sockjs_util:with_session(
-           fun (Session = #session{outbound_queue = Q}) ->
+    Self = self(),
+    case sockjs_session:with_sync(
+           fun (S = #session{outbound_queue = Q}) ->
                    case queue:len(Q) of
-                       0 -> Session#session{response_pid = self()};
-                       _ -> R = encode_list(queue:to_list(Q)),
-                            reply(Req, R),
-                            Session#session{outbound_queue = queue:new(),
-                                            response_pid   = undefined}
+                       0 -> {wait, S#session{response_pid   = Self}};
+                       _ -> {Q,    S#session{outbound_queue = queue:new(),
+                                             response_pid   = undefined}}
                    end
            end, SessionId) of
-        #session{response_pid = P} when is_pid(P) ->
-            receive
-                go -> handle_req(Req, Server, SessionId, xhr, Fun)
-            after 5000 ->
-                    reply(Req, <<"h">>)
-            end;
-        _ ->
-            ok
+        wait -> receive
+                    go -> handle_req(Req, Server, SessionId, xhr, Fun)
+                after 5000 ->
+                        reply(Req, <<"h">>)
+                end;
+        Q    -> reply(Req, encode_list(queue:to_list(Q)))
     end.
 
 reply(Req, Body) ->

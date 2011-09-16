@@ -17,16 +17,7 @@ handle_req(Req, Path, Dispatcher) ->
                  xhr      -> sockjs_conn_xhr;
                  _        -> exit({unknown_transport, Transport})
              end,
-    case ets:lookup(?ETS, SessionId) of
-        []       -> S = #session{id       = SessionId,
-                                 receiver = {Module, SessionId}},
-                    ets:insert(?ETS, {SessionId, S}),
-                    Conn = {Module, SessionId},
-                    Conn:open(),
-                    Fun({Module, Conn}, init),
-                    S;
-        [{_, S}] -> S
-    end,
+    sockjs_session:maybe_create(Module, SessionId, Fun),
     Module:handle_req(Req, Server, SessionId, Transport, Fun).
 
 dispatch(Path, Dispatcher) ->
