@@ -41,7 +41,6 @@ enqueue(Cmd, SessionId) ->
 sender(SessionId) -> {?MODULE, SessionId}.
 
 reply(SessionId) ->
-    Self = self(),
     gen_server:call(spid(SessionId), {reply, self()}, infinity).
 
 encode_list([{close, {Code, Reason}}]) ->
