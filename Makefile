@@ -31,4 +31,4 @@ deps/misultin:
 		git clone https://github.com/ostinelli/misultin.git
 
 clean::
-	rm -rf deps ebin priv/www
+	rm -rf deps ebin/*.beam priv/www
