@@ -18,7 +18,7 @@ maybe_create(Module, SessionId, Fun) ->
                        {ok, SPid} = sockjs_session_sup:start_child(Receiver),
                        ets:insert(?ETS, {SessionId, SPid}),
                        Receiver:open(),
-                       Fun({Module, Receiver}, init), %% TODO why module twice?
+                       Fun(Receiver, init),
                        SPid;
         [{_, SPid}] -> SPid
     end.
