@@ -1,4 +1,4 @@
--module(sockjs_conn).
+-module(sockjs_sender).
 
 -export([behaviour_info/1]).
 

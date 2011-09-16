@@ -1,2 +1,0 @@
--record(session, {id, outbound_queue = queue:new(), response_pid, receiver}).
--define(ETS, sockjs_table).

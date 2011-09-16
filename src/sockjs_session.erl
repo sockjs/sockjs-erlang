@@ -1,56 +1,104 @@
 -module(sockjs_session).
 
+-behaviour(sockjs_sender).
 -behaviour(gen_server).
+
+-export([init/0, start_link/1, maybe_create/2, sender/1, reply/1]).
+
+-export([send/2, close/3]).
 
 -export([init/1, handle_call/3, handle_info/2, terminate/2, code_change/3,
          handle_cast/2]).
 
--include("sockjs.hrl").
+-record(session, {id, outbound_queue = queue:new(), response_pid}).
+-define(ETS, sockjs_table).
 
--export([start_link/1, maybe_create/3, with/2, with_sync/2]).
+init() ->
+    ets:new(?ETS, [public, named_table]).
 
-start_link(Receiver) ->
-    gen_server:start_link(?MODULE, Receiver, []).
+start_link(SessionId) ->
+    gen_server:start_link(?MODULE, SessionId, []).
 
-maybe_create(Module, SessionId, Fun) ->
+maybe_create(SessionId, Fun) ->
     case ets:lookup(?ETS, SessionId) of
-        []          -> Receiver = {Module, SessionId},
-                       {ok, SPid} = sockjs_session_sup:start_child(Receiver),
+        []          -> {ok, SPid} = sockjs_session_sup:start_child(SessionId),
                        ets:insert(?ETS, {SessionId, SPid}),
-                       Receiver:open(),
-                       Fun(Receiver, init),
+                       enqueue({open, nil}, SessionId),
+                       Fun({?MODULE, SessionId}, init),
                        SPid;
         [{_, SPid}] -> SPid
     end.
 
-with(Fun, SessionId) ->
-    with0(fun (SPid) -> gen_server:cast(SPid, {with, Fun}) end, SessionId).
+send(Data, {?MODULE, SessionId}) ->
+    enqueue({data, Data}, SessionId).
 
-with_sync(Fun, SessionId) ->
-    with0(fun (SPid) -> gen_server:call(SPid, {with, Fun}, infinity) end,
-          SessionId).
+close(Code, Reason, {?MODULE, SessionId}) ->
+    enqueue({close, {Code, Reason}}, SessionId).
 
-with0(Fun, SessionId) ->
+enqueue(Cmd, SessionId) ->
+    gen_server:cast(spid(SessionId), {enqueue, Cmd}).
+
+sender(SessionId) -> {?MODULE, SessionId}.
+
+reply(SessionId) ->
+    Self = self(),
+    gen_server:call(spid(SessionId), {reply, self()}, infinity).
+
+encode_list([{close, {Code, Reason}}]) ->
+    %% TODO shut down!
+    sockjs_util:enc("c", [Code, list_to_binary(Reason)]);
+encode_list([{open, _}]) ->
+    <<"o">>;
+encode_list(L) ->
+    sockjs_util:enc("a", [D || {data, D} <- L]).
+
+pop_from_queue(Q) ->
+    {PoppedRev, Rest} = pop_from_queue(any, [], Q),
+    {lists:reverse(PoppedRev), Rest}.
+
+pop_from_queue(any, [], Q) ->
+    case queue:out(Q) of
+        {empty, Q}                     -> {[], Q};
+        {{value, Val = {Type, _}}, Q2} -> pop_from_queue(Type, [Val], Q2)
+    end;
+pop_from_queue(Type, Acc, Q) ->
+    case queue:peek(Q) of
+        empty              -> {Acc, Q};
+        {value, {Type, _}} -> {{value, Val}, Q2} = queue:out(Q),
+                              pop_from_queue(Type, [Val | Acc], Q2);
+        {value, {_, _}}    -> {Acc, Q}
+    end.
+
+spid(SessionId) ->
     case ets:lookup(?ETS, SessionId) of
         []          -> exit(no_session);
-        [{_, SPid}] -> Fun(SPid)
+        [{_, SPid}] -> SPid
     end.
 
 %% --------------------------------------------------------------------------
 
-init(Receiver = {_Module, SessionId}) ->
-    {ok, #session{id       = SessionId,
-                  receiver = Receiver}}.
+init(SessionId) ->
+    {ok, #session{id = SessionId}}.
 
-handle_call({with, Fun}, _From, State) ->
-    {Reply, State2} = Fun(State),
-    {reply, Reply, State2};
+handle_call({reply, Pid}, _From, State = #session{outbound_queue = Q}) ->
+    case pop_from_queue(Q) of
+        {[], _} ->
+            {reply, wait, State#session{response_pid = Pid}};
+        {Popped, Rest} ->
+            {reply, encode_list(Popped),
+             State#session{outbound_queue = Rest,
+                           response_pid   = undefined}}
+    end;
 
 handle_call(Request, _From, State) ->
     {stop, {odd_request, Request}, State}.
 
-handle_cast({with, Fun}, State) ->
-    {noreply, Fun(State)};
+handle_cast({enqueue, Cmd}, State = #session{outbound_queue = Q,
+                                             response_pid   = P}) ->
+    if is_pid(P) -> P ! go;
+       true      -> ok
+    end,
+    {noreply, State#session{outbound_queue = queue:in(Cmd, Q)}};
 
 handle_cast(Cast, State) ->
     {stop, {odd_cast, Cast}, State}.

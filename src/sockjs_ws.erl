@@ -1,6 +1,6 @@
--module(sockjs_conn_ws).
+-module(sockjs_ws).
 
--behaviour(sockjs_conn).
+-behaviour(sockjs_sender).
 
 -export([send/2, close/3]).
 -export([loop/2]).
@@ -8,10 +8,10 @@
 %% TODO this has little in common with the other transports
 %% Where should framing happen? (Do we care?)
 
-send(Data, {sockjs_conn_ws, Ws}) ->
+send(Data, {?MODULE, Ws}) ->
     Ws:send(["m", sockjs_util:enc(Data)]).
 
-close(Code, Reason, {sockjs_conn_ws, Ws}) ->
+close(Code, Reason, {?MODULE, Ws}) ->
     Ws:send(["c", sockjs_util:enc([Code, list_to_binary(Reason)])]),
     exit(normal). %% TODO ?
 
@@ -19,7 +19,7 @@ close(Code, Reason, {sockjs_conn_ws, Ws}) ->
 
 loop(Ws, Fun) ->
     Ws:send(["o"]),
-    Self = {sockjs_conn_ws, Ws},
+    Self = {?MODULE, Ws},
     Fun(Self, init),
     loop0(Ws, Fun, Self).
 
@@ -36,4 +36,3 @@ loop0(Ws, Fun, Self) ->
             Fun(Self, {info, Msg}),
             loop0(Ws, Fun, Self)
     end.
-

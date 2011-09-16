@@ -47,7 +47,7 @@ ws_loop(Ws) ->
     Path = clean_path(Ws:get(path)),
     io:format("~s ~s~n", ["WS", Path]),
     {Fun, _, _, _} = sockjs_transport:dispatch(Path, dispatcher()),
-    sockjs_conn_ws:loop(Ws, Fun).
+    sockjs_ws:loop(Ws, Fun).
 
 clean_path("/")         -> "index.html";
 clean_path("/" ++ Path) -> Path.
