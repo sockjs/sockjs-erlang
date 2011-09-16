@@ -1,7 +1,7 @@
 -module(sockjs_filters).
 
 -export([filters/1]).
--export([xhr_polling/5, xhr_streaming/5, xhr_send/5]).
+-export([xhr_polling/4, xhr_streaming/4, xhr_send/4]).
 
 filters(Endpoint) ->
     case proplists:get_value(list_to_atom(Endpoint), filters()) of
@@ -19,16 +19,16 @@ filters() ->
 
 %% --------------------------------------------------------------------------
 
-xhr_send(Req, _Server, SessionId, xhr_send, Receive) ->
+xhr_send(Req, _Server, SessionId, Receive) ->
     Decoded = mochijson2:decode(Req:get(body)),
     Sender = sockjs_session:sender(SessionId),
     [Receive(Sender, {recv, Msg}) || Msg <- Decoded],
     Req:respond(204).
 
-xhr_polling(Req, Server, SessionId, xhr_polling, Receive) ->
+xhr_polling(Req, Server, SessionId, Receive) ->
     case sockjs_session:reply(SessionId) of
         wait  -> receive
-                     go -> xhr_polling(Req, Server, SessionId, xhr, Receive)
+                     go -> xhr_polling(Req, Server, SessionId, Receive)
                  after 5000 ->
                          reply(Req, <<"h">>)
                  end;
@@ -41,7 +41,7 @@ reply(Req, Body) ->
 %% TODO commonality with xhr_polling?
 %% TODO Detect client closing connection sanely - ATM we get an =ERROR
 %% REPORT==== a few seconds after the client goes away
-xhr_streaming(Req, Server, SessionId, xhr_streaming, Receive) ->
+xhr_streaming(Req, Server, SessionId, Receive) ->
     Req:chunk(head,
               [{"Content-Type", "application/javascript; charset=UTF-8"}]),
     %% IE requires 2KB prefix:

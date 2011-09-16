@@ -6,7 +6,7 @@ handle_req(Req, Path, Dispatcher) ->
     io:format("~s ~s~n", [Req:get(method), Path]),
     {Fun, Server, SessionId, Filters} = dispatch(Path, Dispatcher),
     sockjs_session:maybe_create(SessionId, Fun),
-    [sockjs_filters:F(Req, Server, SessionId, F, Fun) || F <- Filters].
+    [sockjs_filters:F(Req, Server, SessionId, Fun) || F <- Filters].
 
 dispatch(Path, Dispatcher) ->
     [Prefix, Server, SessionId, Endpoint] = string:tokens(Path, "/"),
