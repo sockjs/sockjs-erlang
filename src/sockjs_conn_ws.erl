@@ -6,7 +6,7 @@
 -export([loop/2]).
 
 %% TODO this has little in common with the other transports
-%% Where should framing happen?
+%% Where should framing happen? (Do we care?)
 
 send(Data, {sockjs_conn_ws, Ws}) ->
     Ws:send(["m", sockjs_util:enc(Data)]).
@@ -30,7 +30,7 @@ loop0(Ws, Fun, Self) ->
             Fun(Self, {recv, Decoded}),
             loop0(Ws, Fun, Self);
         closed ->
-            Fun(Self, client_closed),
+            Fun(Self, client_closed), %% TODO get the HTTP transports to emit this. (How do we even know?)
             closed;
         Msg ->
             Fun(Self, {info, Msg}),
