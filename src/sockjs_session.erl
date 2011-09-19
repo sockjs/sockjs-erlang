@@ -43,6 +43,8 @@ sender(SessionId) -> {?MODULE, SessionId}.
 reply(SessionId) ->
     gen_server:call(spid(SessionId), {reply, self()}, infinity).
 
+%% --------------------------------------------------------------------------
+
 encode_list([{close, {Code, Reason}}]) ->
     %% TODO shut down!
     sockjs_util:enc("c", [Code, list_to_binary(Reason)]);
