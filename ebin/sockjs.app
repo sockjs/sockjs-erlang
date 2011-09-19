@@ -4,5 +4,5 @@
   {modules, []},
   {registered, []},
   {mod, {sockjs_app, []}},
-  {env, []},
+  {env, [{sockjs_url, "/lib/sockjs.js"}]},
   {applications, [kernel, stdlib]}]}.

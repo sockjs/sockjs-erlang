@@ -17,13 +17,12 @@ loop(Req) ->
     try
         {abs_path, Path0} = Req:get(uri),
         Path = clean_path(Path0),
-        case {Path, lists:reverse(Path)} of
-            {_, "lmth." ++ _}   -> static(Req, Path);
-            {"static/" ++ _, _} -> static(Req, Path);
-            {"lib/" ++ _, _}    -> static(Req, Path);
-            {"config.js", _}    -> config_js(Req);
-            {_, _}              -> sockjs_filters:handle_req(
-                                     Req, Path, dispatcher())
+        case sockjs_filters:handle_req(Req, Path, dispatcher()) of
+            nomatch -> case Path of
+                           "config.js" -> config_js(Req);
+                           _           -> static(Req, Path)
+                       end;
+            _       -> ok
         end
     catch A:B ->
             io:format("~s ~p ~p~n", [A, B, erlang:get_stacktrace()]),

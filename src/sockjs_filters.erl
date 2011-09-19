@@ -1,13 +1,35 @@
 -module(sockjs_filters).
 
 -export([handle_req/3, dispatch/2]).
--export([xhr_polling/4, xhr_streaming/4, xhr_send/4, jsonp/4, jsonp_send/4]).
+-export([xhr_polling/4, xhr_streaming/4, xhr_send/4, jsonp/4, jsonp_send/4,
+         iframe/4]).
+
+-define(IFRAME, "<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv=\"X-UA-Compatible\" content=\"IE=edge\" />
+  <meta http-equiv=\"Content-Type\" content=\"text/html; charset=UTF-8\" />
+  <script>
+    document.domain = document.domain;
+    _sockjs_onload = function(){SockJS.bootstrap_iframe();};
+  </script>
+  <script src=\"~s\"></script>
+</head>
+<body>
+  <h2>Don't panic!</h2>
+  <p>This is a SockJS hidden iframe. It's used for cross domain magic.</p>
+</body>
+</html>").
 
 handle_req(Req, Path, Dispatcher) ->
-    io:format("~s ~s~n", [Req:get(method), Path]),
-    {Fun, Server, SessionId, Filters} = dispatch(Path, Dispatcher),
-    sockjs_session:maybe_create(SessionId, Fun),
-    [sockjs_filters:F(Req, Server, SessionId, Fun) || F <- Filters].
+    case dispatch(Path, Dispatcher) of
+        {Fun, Server, SessionId, Filters} ->
+            io:format("~s ~s~n", [Req:get(method), Path]),
+            sockjs_session:maybe_create(SessionId, Fun),
+            [sockjs_filters:F(Req, Server, SessionId, Fun) || F <- Filters];
+        nomatch ->
+            nomatch
+    end.
 
 dispatch(Path, Dispatcher) ->
     case lists:foldl(
@@ -18,10 +40,10 @@ dispatch(Path, Dispatcher) ->
                (_,         A)              -> A
            end, nomatch, filters()) of
         nomatch ->
-            exit({unknown_transport, Path});
+            nomatch;
         [Filters, FunS, Server, Session] ->
             case proplists:get_value(list_to_atom(FunS), Dispatcher) of
-                undefined -> exit({unknown_prefix, Path});
+                undefined -> nomatch;
                 Fun       -> {Fun, Server, Session, Filters}
             end
     end.
@@ -29,21 +51,25 @@ dispatch(Path, Dispatcher) ->
 filters() ->
     %% websocket does not actually go via handle_req/3 but we need
     %% something in dispatch/2
-    [{t("/websocket"),     []},
-     {t("/xhr_send"),      [xhr_send]},
-     {t("/xhr"),           [xhr_polling]},
-     {t("/xhr_streaming"), [xhr_streaming]},
-     {t("/jsonp_send"),    [jsonp_send]},
-     {t("/jsonp"),         [jsonp]}].
+    [{t("/websocket"),               []},
+     {t("/xhr_send"),                [xhr_send]},
+     {t("/xhr"),                     [xhr_polling]},
+     {t("/xhr_streaming"),           [xhr_streaming]},
+     {t("/jsonp_send"),              [jsonp_send]},
+     {t("/jsonp"),                   [jsonp]},
+     {p("/iframe[0-9-.a-z_]*.html"), [iframe]}
+    ].
 
 %% TODO make relocatable (here?)
-t(S) -> fun (P) ->
-                case re:run(P, "([^/.]+)/([^/.]+)/([^/.]+)" ++ S,
-                            [{capture, all_but_first, list}]) of
-                    nomatch                          -> nomatch;
-                    {match, [FunS, Server, Session]} -> [FunS, Server, Session]
-                end
-        end.
+p(S) -> fun (Path) -> re(Path, "^([^/.]+)" ++ S ++ "[/]?\$") end.
+t(S) -> fun (Path) -> re(Path, "^([^/.]+)/([^/.]+)/([^/.]+)" ++ S ++ "\$") end.
+
+re(Path, S) ->
+    case re:run(Path, S, [{capture, all_but_first, list}]) of
+        nomatch                          -> nomatch;
+        {match, [FunS]}                  -> [FunS, dummy, dummy];
+        {match, [FunS, Server, Session]} -> [FunS, Server, Session]
+    end.
 
 %% --------------------------------------------------------------------------
 
@@ -75,6 +101,16 @@ jsonp(Req, _Server, SessionId, _Receive) ->
     CB = list_to_binary(proplists:get_value("c", Req:parse_qs())),
     reply_loop(Req, SessionId, true, fun (Body) -> fmt_jsonp(Body, CB) end).
 
+iframe(Req, _Server, _SessionId, _Receive) ->
+    {ok, URL} = application:get_env(sockjs, sockjs_url),
+    IFrame = fmt(?IFRAME, [URL]),
+    MD5 = "\"" ++ binary_to_list(base64:encode(erlang:md5(IFrame))) ++ "\"",
+    case proplists:get_value('if-none-match', Req:get(headers)) of
+        MD5 -> Req:respond(304, "");
+        _   -> Req:ok([{"Content-Type", "text/html; charset=UTF-8"},
+                       {"ETag",         MD5}], IFrame)
+    end.
+
 %% --------------------------------------------------------------------------
 
 receive_body(Body, SessionId, Receive) ->
@@ -101,7 +137,6 @@ reply_loop(Req, SessionId, Once, Fmt) ->
     end.
 
 reply_loop0(Req, _SessionId, true, _Fmt) ->
-    io:format("end!~n"),
     Req:chunk(done);
 reply_loop0(Req, SessionId, false, Fmt) ->
     reply_loop(Req, SessionId, false, Fmt).
@@ -117,3 +152,5 @@ fmt_jsonp(Body, Callback) ->
     %% browser.
     Double = iolist_to_binary(mochijson2:encode(Body)),
     <<Callback/binary, "(", Double/binary, ");", $\r, $\n>>.
+
+fmt(Fmt, Args) -> iolist_to_binary(io_lib:format(Fmt, Args)).
