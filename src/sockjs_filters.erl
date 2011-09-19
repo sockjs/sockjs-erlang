@@ -2,7 +2,7 @@
 
 -export([handle_req/3, dispatch/2]).
 -export([xhr_polling/4, xhr_streaming/4, xhr_send/4, jsonp/4, jsonp_send/4,
-         iframe/4, eventsource/4]).
+         iframe/4, eventsource/4, htmlfile/4]).
 
 -define(IFRAME, "<!DOCTYPE html>
 <html>
@@ -20,6 +20,19 @@
   <p>This is a SockJS hidden iframe. It's used for cross domain magic.</p>
 </body>
 </html>").
+
+-define(IFRAME_HTMLFILE, "<!doctype html>
+<html><head>
+  <meta http-equiv=\"X-UA-Compatible\" content=\"IE=edge\" />
+  <meta http-equiv=\"Content-Type\" content=\"text/html; charset=UTF-8\" />
+</head><body><h2>Don't panic!</h2>
+  <script>
+    document.domain = document.domain;
+    var c = parent.~s;
+    c.start();
+    function p(d) {c.message(d);};
+    window.onload = function() {c.stop();};
+  </script>").
 
 handle_req(Req, Path, Dispatcher) ->
     case dispatch(Path, Dispatcher) of
@@ -58,6 +71,7 @@ filters() ->
      {t("/jsonp_send"),              [jsonp_send]},
      {t("/jsonp"),                   [jsonp]},
      {t("/eventsource"),             [eventsource]},
+     {t("/htmlfile"),                [htmlfile]},
      {p("/iframe[0-9-.a-z_]*.html"), [iframe]}
     ].
 
@@ -99,7 +113,7 @@ jsonp_send(Req, _Server, SessionId, Receive) ->
 
 jsonp(Req, _Server, SessionId, _Receive) ->
     headers(Req),
-    CB = list_to_binary(proplists:get_value("c", Req:parse_qs())),
+    CB = callback(Req),
     reply_loop(Req, SessionId, true, fun (Body) -> fmt_jsonp(Body, CB) end).
 
 iframe(Req, _Server, _SessionId, _Receive) ->
@@ -116,6 +130,16 @@ eventsource(Req, _Server, SessionId, _Receive) ->
     headers(Req, "text/event-stream; charset=UTF-8"),
     chunk(Req, <<$\r, $\n, $\r, $\n>>),
     reply_loop(Req, SessionId, true, fun fmt_eventsource/1).
+
+htmlfile(Req, _Server, SessionId, _Receive) ->
+    headers(Req, "text/html; charset=UTF-8"),
+    IFrame0 = fmt(?IFRAME_HTMLFILE, [callback(Req)]),
+    %% Safari needs at least 1024 bytes to parse the website. Relevant:
+    %%   http://code.google.com/p/browsersec/wiki/Part2#Survey_of_content_sniffing_behaviors
+    Padding = list_to_binary(string:copies(" ", 1024 - size(IFrame0))),
+    IFrame = <<IFrame0/binary, Padding/binary, $\r, $\n, $\r, $\n>>,
+    chunk(Req, IFrame),
+    reply_loop(Req, SessionId, false, fun fmt_htmlfile/1).
 
 %% --------------------------------------------------------------------------
 
@@ -150,6 +174,9 @@ reply_loop0(Req, SessionId, false, Fmt) ->
 chunk(Req, Body)      -> Req:chunk(Body).
 chunk(Req, Body, Fmt) -> chunk(Req, Fmt(Body)).
 
+callback(Req) ->
+    list_to_binary(proplists:get_value("c", Req:parse_qs())).
+
 fmt_xhr(Body) -> <<Body/binary, $\n>>.
 
 fmt_jsonp(Body, Callback) ->
@@ -164,6 +191,10 @@ fmt_eventsource(Body) ->
                 url_escape(binary_to_list(Body),
                            [$%, $\r, $\n, 0])), %% $% must be first!
     <<"data: ", Escaped/binary, $\r, $\n, $\r, $\n>>.
+
+fmt_htmlfile(Body) ->
+    Double = iolist_to_binary(mochijson2:encode(Body)),
+    <<"<script>", $\n, "p(", Double/binary, ");", $\n, "</script>", $\r, $\n>>.
 
 fmt(Fmt, Args) -> iolist_to_binary(io_lib:format(Fmt, Args)).
 
