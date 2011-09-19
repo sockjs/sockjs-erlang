@@ -22,7 +22,7 @@ loop(Req) ->
             {"static/" ++ _, _} -> static(Req, Path);
             {"lib/" ++ _, _}    -> static(Req, Path);
             {"config.js", _}    -> config_js(Req);
-            {_, _}              -> sockjs_transport:handle_req(
+            {_, _}              -> sockjs_filters:handle_req(
                                      Req, Path, dispatcher())
         end
     catch A:B ->
@@ -46,7 +46,7 @@ config_js(Req) ->
 ws_loop(Ws) ->
     Path = clean_path(Ws:get(path)),
     io:format("~s ~s~n", ["WS", Path]),
-    {Fun, _, _, _} = sockjs_transport:dispatch(Path, dispatcher()),
+    {Fun, _, _, _} = sockjs_filters:dispatch(Path, dispatcher()),
     sockjs_ws:loop(Ws, Fun).
 
 clean_path("/")         -> "index.html";

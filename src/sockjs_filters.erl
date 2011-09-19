@@ -1,23 +1,49 @@
 -module(sockjs_filters).
 
--export([filters/1]).
+-export([handle_req/3, dispatch/2]).
 -export([xhr_polling/4, xhr_streaming/4, xhr_send/4, jsonp/4, jsonp_send/4]).
 
-filters(Endpoint) ->
-    case proplists:get_value(list_to_atom(Endpoint), filters()) of
-        undefined -> exit({unknown_endpoint, Endpoint});
-        Filters   -> Filters
+handle_req(Req, Path, Dispatcher) ->
+    io:format("~s ~s~n", [Req:get(method), Path]),
+    {Fun, Server, SessionId, Filters} = dispatch(Path, Dispatcher),
+    sockjs_session:maybe_create(SessionId, Fun),
+    [sockjs_filters:F(Req, Server, SessionId, Fun) || F <- Filters].
+
+dispatch(Path, Dispatcher) ->
+    case lists:foldl(
+           fun ({Match, Filters}, nomatch) -> case Match(Path) of
+                                                  nomatch -> nomatch;
+                                                  Rest    -> [Filters | Rest]
+                                              end;
+               (_,         A)              -> A
+           end, nomatch, filters()) of
+        nomatch ->
+            exit({unknown_transport, Path});
+        [Filters, FunS, Server, Session] ->
+            case proplists:get_value(list_to_atom(FunS), Dispatcher) of
+                undefined -> exit({unknown_prefix, Path});
+                Fun       -> {Fun, Server, Session, Filters}
+            end
     end.
 
 filters() ->
-    %% websocket does not actually go via transport:handle_req/3 but we need
-    %% something in transport:dispatch/2
-    [{websocket,     []},
-     {xhr_send,      [xhr_send]},
-     {xhr,           [xhr_polling]},
-     {xhr_streaming, [xhr_streaming]},
-     {jsonp_send,    [jsonp_send]},
-     {jsonp,         [jsonp]}].
+    %% websocket does not actually go via handle_req/3 but we need
+    %% something in dispatch/2
+    [{t("/websocket"),     []},
+     {t("/xhr_send"),      [xhr_send]},
+     {t("/xhr"),           [xhr_polling]},
+     {t("/xhr_streaming"), [xhr_streaming]},
+     {t("/jsonp_send"),    [jsonp_send]},
+     {t("/jsonp"),         [jsonp]}].
+
+%% TODO make relocatable (here?)
+t(S) -> fun (P) ->
+                case re:run(P, "([^/.]+)/([^/.]+)/([^/.]+)" ++ S,
+                            [{capture, all_but_first, list}]) of
+                    nomatch                          -> nomatch;
+                    {match, [FunS, Server, Session]} -> [FunS, Server, Session]
+                end
+        end.
 
 %% --------------------------------------------------------------------------
 
