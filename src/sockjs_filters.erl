@@ -2,7 +2,7 @@
 
 -export([handle_req/3, dispatch/2]).
 -export([xhr_polling/4, xhr_streaming/4, xhr_send/4, jsonp/4, jsonp_send/4,
-         iframe/4]).
+         iframe/4, eventsource/4]).
 
 -define(IFRAME, "<!DOCTYPE html>
 <html>
@@ -57,6 +57,7 @@ filters() ->
      {t("/xhr_streaming"),           [xhr_streaming]},
      {t("/jsonp_send"),              [jsonp_send]},
      {t("/jsonp"),                   [jsonp]},
+     {t("/eventsource"),             [eventsource]},
      {p("/iframe[0-9-.a-z_]*.html"), [iframe]}
     ].
 
@@ -111,6 +112,11 @@ iframe(Req, _Server, _SessionId, _Receive) ->
                        {"ETag",         MD5}], IFrame)
     end.
 
+eventsource(Req, _Server, SessionId, _Receive) ->
+    headers(Req, "text/event-stream; charset=UTF-8"),
+    chunk(Req, <<$\r, $\n, $\r, $\n>>),
+    reply_loop(Req, SessionId, true, fun fmt_eventsource/1).
+
 %% --------------------------------------------------------------------------
 
 receive_body(Body, SessionId, Receive) ->
@@ -141,8 +147,8 @@ reply_loop0(Req, _SessionId, true, _Fmt) ->
 reply_loop0(Req, SessionId, false, Fmt) ->
     reply_loop(Req, SessionId, false, Fmt).
 
-chunk(Req, Body, Fmt) ->
-    Req:chunk(Fmt(Body)).
+chunk(Req, Body)      -> Req:chunk(Body).
+chunk(Req, Body, Fmt) -> chunk(Req, Fmt(Body)).
 
 fmt_xhr(Body) -> <<Body/binary, $\n>>.
 
@@ -153,4 +159,24 @@ fmt_jsonp(Body, Callback) ->
     Double = iolist_to_binary(mochijson2:encode(Body)),
     <<Callback/binary, "(", Double/binary, ");", $\r, $\n>>.
 
+fmt_eventsource(Body) ->
+    Escaped = iolist_to_binary(
+                url_escape(binary_to_list(Body),
+                           [$%, $\r, $\n, 0])), %% $% must be first!
+    <<"data: ", Escaped/binary, $\r, $\n, $\r, $\n>>.
+
 fmt(Fmt, Args) -> iolist_to_binary(io_lib:format(Fmt, Args)).
+
+url_escape("", _Chars) ->
+    "";
+url_escape([Char | Rest], Chars) ->
+    case lists:member(Char, Chars) of
+        true  -> [hex(Char) | url_escape(Rest, Chars)];
+        false -> [Char | url_escape(Rest, Chars)]
+    end.
+
+hex(C) ->
+    <<High0:4, Low0:4>> = <<C>>,
+    High = integer_to_list(High0),
+    Low = integer_to_list(Low0),
+    "%" ++ High ++ Low.
