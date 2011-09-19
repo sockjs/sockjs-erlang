@@ -2,7 +2,8 @@
 
 -export([handle_req/3, dispatch/2]).
 -export([xhr_polling/4, xhr_streaming/4, xhr_send/4, jsonp/4, jsonp_send/4,
-         iframe/4, eventsource/4, htmlfile/4, chunking_test/4]).
+         iframe/4, eventsource/4, htmlfile/4, chunking_test/4,
+         welcome_screen/4]).
 -export([chunking_loop/2]).
 
 -define(IFRAME, "<!DOCTYPE html>
@@ -73,6 +74,7 @@ filters() ->
      {t("/jsonp"),                   [jsonp]},
      {t("/eventsource"),             [eventsource]},
      {t("/htmlfile"),                [htmlfile]},
+     {p(""),                         [welcome_screen]},
      {p("/iframe[0-9-.a-z_]*.html"), [iframe]},
      {p("/chunking_test"),           [chunking_test]}
     ].
@@ -123,7 +125,7 @@ iframe(Req, _Server, _SessionId, _Receive) ->
     {ok, URL} = application:get_env(sockjs, sockjs_url),
     IFrame = fmt(?IFRAME, [URL]),
     MD5 = "\"" ++ binary_to_list(base64:encode(erlang:md5(IFrame))) ++ "\"",
-    case proplists:get_value('if-none-match', Req:get(headers)) of
+    case proplists:get_value('If-None-Match', Req:get(headers)) of
         MD5 -> Req:respond(304, "");
         _   -> Req:ok([{"Content-Type", "text/html; charset=UTF-8"},
                        {"ETag",         MD5}], IFrame)
@@ -160,6 +162,10 @@ chunking_loop(Req,  []) -> Req:chunk(done);
 chunking_loop(_Req, [{Timeout, Write, Payload} | Rest]) ->
     Write(Payload),
     timer:apply_after(Timeout, ?MODULE, chunking_loop, Rest).
+
+welcome_screen(Req, _Server, _SessionId, _Receive) ->
+    Req:ok([{"Content-Type", "text/plain; charset=UTF-8"}],
+           "Welcome to SockJS!\n").
 
 %% --------------------------------------------------------------------------
 
