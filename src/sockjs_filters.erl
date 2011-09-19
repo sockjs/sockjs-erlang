@@ -94,7 +94,8 @@ re(Path, S) ->
 %% from ours.
 xhr_send(Req, _Server, SessionId, Receive) ->
     receive_body(Req:get(body), SessionId, Receive),
-    Req:respond(204).
+    %% FF assumes that the response is XML.
+    Req:respond(204, [{"content-type", "text/plain"}], "").
 
 xhr_polling(Req, _Server, SessionId, _Receive) ->
     headers(Req),
