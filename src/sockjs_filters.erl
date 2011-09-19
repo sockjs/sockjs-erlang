@@ -2,7 +2,8 @@
 
 -export([handle_req/3, dispatch/2]).
 -export([xhr_polling/4, xhr_streaming/4, xhr_send/4, jsonp/4, jsonp_send/4,
-         iframe/4, eventsource/4, htmlfile/4]).
+         iframe/4, eventsource/4, htmlfile/4, chunking_test/4]).
+-export([chunking_loop/2]).
 
 -define(IFRAME, "<!DOCTYPE html>
 <html>
@@ -72,7 +73,8 @@ filters() ->
      {t("/jsonp"),                   [jsonp]},
      {t("/eventsource"),             [eventsource]},
      {t("/htmlfile"),                [htmlfile]},
-     {p("/iframe[0-9-.a-z_]*.html"), [iframe]}
+     {p("/iframe[0-9-.a-z_]*.html"), [iframe]},
+     {p("/chunking_test"),           [chunking_test]}
     ].
 
 %% TODO make relocatable (here?)
@@ -140,6 +142,23 @@ htmlfile(Req, _Server, SessionId, _Receive) ->
     IFrame = <<IFrame0/binary, Padding/binary, $\r, $\n, $\r, $\n>>,
     chunk(Req, IFrame),
     reply_loop(Req, SessionId, false, fun fmt_htmlfile/1).
+
+chunking_test(Req, _Server, _SessionId, _Receive) ->
+    headers(Req),
+    Write = fun(P) -> chunk(Req, P, fun fmt_xhr/1) end,
+    %% IE requires 2KB prelude
+    Prelude = list_to_binary(string:copies(" ", 2048)),
+    chunking_loop(Req, [{0,    Write, <<Prelude/binary, "h">>},
+                        {5,    Write, <<"h">>},
+                        {25,   Write, <<"h">>},
+                        {125,  Write, <<"h">>},
+                        {625,  Write, <<"h">>},
+                        {3125, Write, <<"h">>}]).
+
+chunking_loop(Req,  []) -> Req:chunk(done);
+chunking_loop(_Req, [{Timeout, Write, Payload} | Rest]) ->
+    Write(Payload),
+    timer:apply_after(Timeout, ?MODULE, chunking_loop, Rest).
 
 %% --------------------------------------------------------------------------
 
