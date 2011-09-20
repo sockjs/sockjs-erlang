@@ -45,14 +45,6 @@ reply(SessionId) ->
 
 %% --------------------------------------------------------------------------
 
-encode_list([{close, {Code, Reason}}]) ->
-    %% TODO shut down!
-    sockjs_util:enc("c", [Code, list_to_binary(Reason)]);
-encode_list([{open, _}]) ->
-    <<"o">>;
-encode_list(L) ->
-    sockjs_util:enc("a", [D || {data, D} <- L]).
-
 pop_from_queue(Q) ->
     {PoppedRev, Rest} = pop_from_queue(any, [], Q),
     {lists:reverse(PoppedRev), Rest}.
@@ -85,12 +77,16 @@ spid(SessionId) ->
 init(SessionId) ->
     {ok, #session{id = SessionId}}.
 
-handle_call({reply, Pid}, _From, State = #session{outbound_queue = Q}) ->
+handle_call({reply, Pid}, _From, State = #session{response_pid   = RPid,
+                                                  outbound_queue = Q}) ->
     case pop_from_queue(Q) of
         {[], _} ->
-            {reply, wait, State#session{response_pid = Pid}};
+            {reply, case RPid of
+                        undefined -> wait;
+                        _         -> session_in_use
+                    end, State#session{response_pid = Pid}};
         {Popped, Rest} ->
-            {reply, encode_list(Popped),
+            {reply, sockjs_util:encode_list(Popped),
              State#session{outbound_queue = Rest,
                            response_pid   = undefined}}
     end;

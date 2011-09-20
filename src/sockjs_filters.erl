@@ -9,6 +9,7 @@
 -export([chunking_loop/2]).
 
 -define(YEAR, 365 * 24 * 60 * 60).
+-define(STILL_OPEN, {2010, "Another connection still open"}).
 
 -define(IFRAME, "<!DOCTYPE html>
 <html>
@@ -269,14 +270,17 @@ headers(Req, Headers, ContentType) ->
 
 reply_loop(Req, SessionId, Once, Fmt) ->
     case sockjs_session:reply(SessionId) of
-        wait  -> receive
-                     go -> reply_loop(Req, SessionId, Once, Fmt)
-                 after 5000 ->
-                         chunk(Req, <<"h">>, Fmt),
-                         reply_loop0(Req, SessionId, Once, Fmt)
-                 end;
-        Reply -> chunk(Req, Reply, Fmt),
-                 reply_loop0(Req, SessionId, Once, Fmt)
+        wait           -> receive
+                              go -> reply_loop(Req, SessionId, Once, Fmt)
+                          after 5000 ->
+                                  chunk(Req, <<"h">>, Fmt),
+                                  reply_loop0(Req, SessionId, Once, Fmt)
+                          end;
+        session_in_use -> Err = sockjs_util:encode_list([{close, ?STILL_OPEN}]),
+                          chunk(Req, Err, Fmt),
+                          Req:chunk(done);
+        Reply          -> chunk(Req, Reply, Fmt),
+                          reply_loop0(Req, SessionId, Once, Fmt)
     end.
 
 reply_loop0(Req, _SessionId, true, _Fmt) ->
