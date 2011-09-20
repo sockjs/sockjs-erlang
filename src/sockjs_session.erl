@@ -19,12 +19,12 @@ init() ->
 start_link(SessionId) ->
     gen_server:start_link(?MODULE, SessionId, []).
 
-maybe_create(SessionId, Fun) ->
+maybe_create(SessionId, Receive) ->
     case ets:lookup(?ETS, SessionId) of
         []          -> {ok, SPid} = sockjs_session_sup:start_child(SessionId),
                        ets:insert(?ETS, {SessionId, SPid}),
                        enqueue({open, nil}, SessionId),
-                       Fun({?MODULE, SessionId}, init),
+                       Receive({?MODULE, SessionId}, init),
                        SPid;
         [{_, SPid}] -> SPid
     end.
@@ -72,7 +72,7 @@ pop_from_queue(Type, Acc, Q) ->
 
 spid(SessionId) ->
     case ets:lookup(?ETS, SessionId) of
-        []          -> exit(no_session);
+        []          -> throw(no_session);
         [{_, SPid}] -> SPid
     end.
 

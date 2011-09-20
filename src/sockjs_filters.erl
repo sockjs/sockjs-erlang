@@ -1,9 +1,9 @@
 -module(sockjs_filters).
 
 -export([handle_req/3, dispatch/3]).
--export([xhr_polling/5, xhr_streaming/5, xhr_send/5, jsonp/5, jsonp_send/5,
-         iframe/5, eventsource/5, htmlfile/5, chunking_test/5,
-         welcome_screen/5, options/5]).
+-export([xhr_polling/4, xhr_streaming/4, jsonp/4, iframe/4, eventsource/4,
+         htmlfile/4, chunking_test/4, welcome_screen/4, options/4]).
+-export([xhr_send/5, jsonp_send/5]).
 -export([cache_for/4, h_sid/4, h_no_cache/4, xhr_cors/4, xhr_options/4,
          expect_xhr/4, expect_form/4]).
 -export([chunking_loop/2]).
@@ -43,15 +43,25 @@
 handle_req(Req, Path, Dispatcher) ->
     Method = Req:get(method),
     case dispatch(Method, Path, Dispatcher) of
-        {Fun, Server, SessionId, {Action, Filters}} ->
+        {Receive, Server, SessionId, {SendRecv, Action, Filters}} ->
             io:format("~s ~s~n", [Method, Path]),
-            sockjs_session:maybe_create(SessionId, Fun),
             Headers = lists:foldl(
                         fun (F, Headers0) ->
                                 sockjs_filters:F(Req, Headers0,
                                                  Server, SessionId)
                         end, [], Filters),
-            sockjs_filters:Action(Req, Headers, Server, SessionId, Fun);
+            case SendRecv of
+                send ->
+                    sockjs_session:maybe_create(SessionId, Receive),
+                    sockjs_filters:Action(Req, Headers, Server, SessionId);
+                recv ->
+                    try
+                        sockjs_filters:Action(Req, Headers, Server, SessionId,
+                                              Receive)
+                    catch throw:no_session ->
+                            Req:respond(404)
+                    end
+                end;
         nomatch ->
             nomatch;
         bad_method ->
@@ -67,7 +77,7 @@ dispatch(Method, Path, Dispatcher) ->
                        Rest ->
                            case lists:keyfind(Method, 1, MethodFilters) of
                                false      -> bad_method;
-                               {_, A, Fs} -> [{A, Fs} | Rest]
+                               {_, SR, A, Fs} -> [{SR, A, Fs} | Rest]
                            end
                    end;
                (_, A) ->
@@ -86,21 +96,21 @@ filters() ->
     OptsFilters = [h_sid, xhr_cors, cache_for, xhr_options],
     %% websocket does not actually go via handle_req/3 but we need
     %% something in dispatch/2
-    [{t("/websocket"),               [{'GET',     dummy,          []}]},
-     {t("/xhr_send"),                [{'POST',    xhr_send,       [h_sid, xhr_cors, expect_xhr]},
-                                      {'OPTIONS', options,        OptsFilters}]},
-     {t("/xhr"),                     [{'POST',    xhr_polling,    [h_sid, xhr_cors]},
-                                      {'OPTIONS', options,        OptsFilters}]},
-     {t("/xhr_streaming"),           [{'POST',    xhr_streaming,  [h_sid, xhr_cors]},
-                                      {'OPTIONS', options,        OptsFilters}]},
-     {t("/jsonp_send"),              [{'POST',    jsonp_send,     [h_sid, expect_form]}]},
-     {t("/jsonp"),                   [{'GET',     jsonp,          [h_sid, h_no_cache]}]},
-     {t("/eventsource"),             [{'GET',     eventsource,    [h_sid, h_no_cache]}]},
-     {t("/htmlfile"),                [{'GET',     htmlfile,       [h_sid, h_no_cache]}]},
-     {p(""),                         [{'GET',     welcome_screen, []}]},
-     {p("/iframe[0-9-.a-z_]*.html"), [{'GET',     iframe,         [cache_for]}]},
-     {p("/chunking_test"),           [{'POST',    chunking_test,  [h_sid, xhr_cors, expect_xhr]},
-                                      {'OPTIONS', options,        OptsFilters}]}
+    [{t("/websocket"),               [{'GET',     send, dummy,          []}]},
+     {t("/xhr_send"),                [{'POST',    recv, xhr_send,       [h_sid, xhr_cors, expect_xhr]},
+                                      {'OPTIONS', send, options,        OptsFilters}]},
+     {t("/xhr"),                     [{'POST',    send, xhr_polling,    [h_sid, xhr_cors]},
+                                      {'OPTIONS', send, options,        OptsFilters}]},
+     {t("/xhr_streaming"),           [{'POST',    send, xhr_streaming,  [h_sid, xhr_cors]},
+                                      {'OPTIONS', send, options,        OptsFilters}]},
+     {t("/jsonp_send"),              [{'POST',    recv, jsonp_send,     [h_sid, expect_form]}]},
+     {t("/jsonp"),                   [{'GET',     send, jsonp,          [h_sid, h_no_cache]}]},
+     {t("/eventsource"),             [{'GET',     send, eventsource,    [h_sid, h_no_cache]}]},
+     {t("/htmlfile"),                [{'GET',     send, htmlfile,       [h_sid, h_no_cache]}]},
+     {p(""),                         [{'GET',     send, welcome_screen, []}]},
+     {p("/iframe[0-9-.a-z_]*.html"), [{'GET',     send, iframe,         [cache_for]}]},
+     {p("/chunking_test"),           [{'POST',    send, chunking_test,  [h_sid, xhr_cors, expect_xhr]},
+                                      {'OPTIONS', send, options,        OptsFilters}]}
     ].
 
 %% TODO make relocatable (here?)
@@ -116,36 +126,24 @@ re(Path, S) ->
 
 %% --------------------------------------------------------------------------
 
-%% This is send but it receives - "send" from the client POV, receive
-%% from ours.
-xhr_send(Req, Headers, _Server, SessionId, Receive) ->
-    receive_body(Req:get(body), SessionId, Receive),
-    %% FF assumes that the response is XML.
-    Req:respond(204, [{"content-type", "text/plain"}] ++ Headers, "").
-
-xhr_polling(Req, Headers, _Server, SessionId, _Receive) ->
+xhr_polling(Req, Headers, _Server, SessionId) ->
     headers(Req, Headers),
     reply_loop(Req, SessionId, true, fun fmt_xhr/1).
 
 %% TODO Do something sensible with client closing timeouts
-xhr_streaming(Req, Headers, _Server, SessionId, _Receive) ->
+xhr_streaming(Req, Headers, _Server, SessionId) ->
     headers(Req, Headers),
     %% IE requires 2KB prefix:
     %% http://blogs.msdn.com/b/ieinternals/archive/2010/04/06/comet-streaming-in-internet-explorer-with-xmlhttprequest-and-xdomainrequest.aspx
     chunk(Req, list_to_binary(string:copies("h", 2048)), fun fmt_xhr/1),
     reply_loop(Req, SessionId, false, fun fmt_xhr/1).
 
-jsonp_send(Req, Headers, _Server, SessionId, Receive) ->
-    Body = proplists:get_value("d", Req:parse_post()),
-    receive_body(Body, SessionId, Receive),
-    Req:respond(200, Headers, "").
-
-jsonp(Req, Headers, _Server, SessionId, _Receive) ->
+jsonp(Req, Headers, _Server, SessionId) ->
     headers(Req, Headers),
     CB = callback(Req),
     reply_loop(Req, SessionId, true, fun (Body) -> fmt_jsonp(Body, CB) end).
 
-iframe(Req, Headers, _Server, _SessionId, _Receive) ->
+iframe(Req, Headers, _Server, _SessionId) ->
     {ok, URL} = application:get_env(sockjs, sockjs_url),
     IFrame = fmt(?IFRAME, [URL]),
     MD5 = "\"" ++ binary_to_list(base64:encode(erlang:md5(IFrame))) ++ "\"",
@@ -155,12 +153,12 @@ iframe(Req, Headers, _Server, _SessionId, _Receive) ->
                        {"ETag",         MD5}] ++ Headers, IFrame)
     end.
 
-eventsource(Req, Headers, _Server, SessionId, _Receive) ->
+eventsource(Req, Headers, _Server, SessionId) ->
     headers(Req, Headers, "text/event-stream; charset=UTF-8"),
     chunk(Req, <<$\r, $\n, $\r, $\n>>),
     reply_loop(Req, SessionId, true, fun fmt_eventsource/1).
 
-htmlfile(Req, Headers, _Server, SessionId, _Receive) ->
+htmlfile(Req, Headers, _Server, SessionId) ->
     headers(Req, Headers, "text/html; charset=UTF-8"),
     IFrame0 = fmt(?IFRAME_HTMLFILE, [callback(Req)]),
     %% Safari needs at least 1024 bytes to parse the website. Relevant:
@@ -170,7 +168,7 @@ htmlfile(Req, Headers, _Server, SessionId, _Receive) ->
     chunk(Req, IFrame),
     reply_loop(Req, SessionId, false, fun fmt_htmlfile/1).
 
-chunking_test(Req, Headers, _Server, _SessionId, _Receive) ->
+chunking_test(Req, Headers, _Server, _SessionId) ->
     headers(Req, Headers),
     Write = fun(P) -> chunk(Req, P, fun fmt_xhr/1) end,
     %% IE requires 2KB prelude
@@ -187,12 +185,26 @@ chunking_loop(Req, [{Timeout, Write, Payload} | Rest]) ->
     Write(Payload),
     timer:apply_after(Timeout, ?MODULE, chunking_loop, [Req, Rest]).
 
-welcome_screen(Req, Headers, _Server, _SessionId, _Receive) ->
+welcome_screen(Req, Headers, _Server, _SessionId) ->
     Req:ok([{"Content-Type", "text/plain; charset=UTF-8"}] ++ Headers,
            "Welcome to SockJS!\n").
 
-options(Req, _Headers, _Server, _SessionId, _Receive) ->
+options(Req, _Headers, _Server, _SessionId) ->
     Req:respond(204).
+
+%% --------------------------------------------------------------------------
+
+%% This is send but it receives - "send" from the client POV, receive
+%% from ours.
+xhr_send(Req, Headers, _Server, SessionId, Receive) ->
+    receive_body(Req:get(body), SessionId, Receive),
+    %% FF assumes that the response is XML.
+    Req:respond(204, [{"content-type", "text/plain"}] ++ Headers, "").
+
+jsonp_send(Req, Headers, _Server, SessionId, Receive) ->
+    Body = proplists:get_value("d", Req:parse_post()),
+    receive_body(Body, SessionId, Receive),
+    Req:respond(200, Headers, "").
 
 %% --------------------------------------------------------------------------
 
