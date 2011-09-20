@@ -1,12 +1,14 @@
 -module(sockjs_filters).
 
--export([handle_req/3, dispatch/2]).
+-export([handle_req/3, dispatch/3]).
 -export([xhr_polling/5, xhr_streaming/5, xhr_send/5, jsonp/5, jsonp_send/5,
          iframe/5, eventsource/5, htmlfile/5, chunking_test/5,
-         welcome_screen/5]).
--export([cache_for/4, h_sid/4, h_no_cache/4, xhr_cors/4, expect_xhr/4,
-         expect_form/4]).
+         welcome_screen/5, options/5]).
+-export([cache_for/4, h_sid/4, h_no_cache/4, xhr_cors/4, xhr_options/4,
+         expect_xhr/4, expect_form/4]).
 -export([chunking_loop/2]).
+
+-define(YEAR, 365 * 24 * 60 * 60).
 
 -define(IFRAME, "<!DOCTYPE html>
 <html>
@@ -39,9 +41,10 @@
   </script>").
 
 handle_req(Req, Path, Dispatcher) ->
-    case dispatch(Path, Dispatcher) of
+    Method = Req:get(method),
+    case dispatch(Method, Path, Dispatcher) of
         {Fun, Server, SessionId, {Action, Filters}} ->
-            io:format("~s ~s~n", [Req:get(method), Path]),
+            io:format("~s ~s~n", [Method, Path]),
             sockjs_session:maybe_create(SessionId, Fun),
             Headers = lists:foldl(
                         fun (F, Headers0) ->
@@ -50,40 +53,54 @@ handle_req(Req, Path, Dispatcher) ->
                         end, [], Filters),
             sockjs_filters:Action(Req, Headers, Server, SessionId, Fun);
         nomatch ->
-            nomatch
+            nomatch;
+        bad_method ->
+            Req:respond(405)
     end.
 
-dispatch(Path, Dispatcher) ->
+dispatch(Method, Path, Dispatcher) ->
     case lists:foldl(
-           fun ({Match, Filters}, nomatch) -> case Match(Path) of
-                                                  nomatch -> nomatch;
-                                                  Rest    -> [Filters | Rest]
-                                              end;
-               (_,         A)              -> A
+           fun ({Match, MethodFilters}, nomatch) ->
+                   case Match(Path) of
+                       nomatch ->
+                           nomatch;
+                       Rest ->
+                           case lists:keyfind(Method, 1, MethodFilters) of
+                               false      -> bad_method;
+                               {_, A, Fs} -> [{A, Fs} | Rest]
+                           end
+                   end;
+               (_, A) ->
+                   A
            end, nomatch, filters()) of
-        nomatch ->
-            nomatch;
         [Filters, FunS, Server, Session] ->
             case proplists:get_value(list_to_atom(FunS), Dispatcher) of
                 undefined -> nomatch;
                 Fun       -> {Fun, Server, Session, Filters}
-            end
+            end;
+        Else ->
+            Else
     end.
 
 filters() ->
+    OptsFilters = [h_sid, xhr_cors, cache_for, xhr_options],
     %% websocket does not actually go via handle_req/3 but we need
     %% something in dispatch/2
-    [{t("/websocket"),               {dummy,          []}},
-     {t("/xhr_send"),                {xhr_send,       [h_sid, xhr_cors, expect_xhr]}},
-     {t("/xhr"),                     {xhr_polling,    [h_sid, xhr_cors]}},
-     {t("/xhr_streaming"),           {xhr_streaming,  [h_sid, xhr_cors]}},
-     {t("/jsonp_send"),              {jsonp_send,     [h_sid, expect_form]}},
-     {t("/jsonp"),                   {jsonp,          [h_sid, h_no_cache]}},
-     {t("/eventsource"),             {eventsource,    [h_sid, h_no_cache]}},
-     {t("/htmlfile"),                {htmlfile,       [h_sid, h_no_cache]}},
-     {p(""),                         {welcome_screen, []}},
-     {p("/iframe[0-9-.a-z_]*.html"), {iframe,         [cache_for]}},
-     {p("/chunking_test"),           {chunking_test,  [h_sid, xhr_cors, expect_xhr]}}
+    [{t("/websocket"),               [{'GET',     dummy,          []}]},
+     {t("/xhr_send"),                [{'POST',    xhr_send,       [h_sid, xhr_cors, expect_xhr]},
+                                      {'OPTIONS', options,        OptsFilters}]},
+     {t("/xhr"),                     [{'POST',    xhr_polling,    [h_sid, xhr_cors]},
+                                      {'OPTIONS', options,        OptsFilters}]},
+     {t("/xhr_streaming"),           [{'POST',    xhr_streaming,  [h_sid, xhr_cors]},
+                                      {'OPTIONS', options,        OptsFilters}]},
+     {t("/jsonp_send"),              [{'POST',    jsonp_send,     [h_sid, expect_form]}]},
+     {t("/jsonp"),                   [{'GET',     jsonp,          [h_sid, h_no_cache]}]},
+     {t("/eventsource"),             [{'GET',     eventsource,    [h_sid, h_no_cache]}]},
+     {t("/htmlfile"),                [{'GET',     htmlfile,       [h_sid, h_no_cache]}]},
+     {p(""),                         [{'GET',     welcome_screen, []}]},
+     {p("/iframe[0-9-.a-z_]*.html"), [{'GET',     iframe,         [cache_for]}]},
+     {p("/chunking_test"),           [{'POST',    chunking_test,  [h_sid, xhr_cors, expect_xhr]},
+                                      {'OPTIONS', options,        OptsFilters}]}
     ].
 
 %% TODO make relocatable (here?)
@@ -174,14 +191,16 @@ welcome_screen(Req, Headers, _Server, _SessionId, _Receive) ->
     Req:ok([{"Content-Type", "text/plain; charset=UTF-8"}] ++ Headers,
            "Welcome to SockJS!\n").
 
+options(Req, _Headers, _Server, _SessionId, _Receive) ->
+    Req:respond(204).
+
 %% --------------------------------------------------------------------------
 
 cache_for(_Req, Headers, _Server, _SessionId) ->
-    Year = 365 * 24 * 60 * 60,
     Expires = calendar:gregorian_seconds_to_datetime(
                 calendar:datetime_to_gregorian_seconds(
-                  calendar:now_to_datetime(now())) + Year),
-    [{"Cache-Control", "public, max-age=" ++ integer_to_list(Year)},
+                  calendar:now_to_datetime(now())) + ?YEAR),
+    [{"Cache-Control", "public, max-age=" ++ integer_to_list(?YEAR)},
      {"Expires",       httpd_util:rfc1123_date(Expires)}] ++ Headers.
 
 h_sid(Req, Headers, _Server, _SessionId) ->
@@ -209,6 +228,10 @@ xhr_cors(Req, Headers, _Server, _SessionId) ->
                    end,
     [{"Access-Control-Allow-Origin",      Origin},
      {"Access-Control-Allow-Credentials", "true"}] ++ AllowHeaders ++ Headers.
+
+xhr_options(_Req, Headers, _Server, _SessionId) ->
+    [{"Allow",                  "OPTIONS, POST"},
+     {"Access-Control-Max-Age", integer_to_list(?YEAR)}] ++ Headers.
 
 expect_xhr(_Req, Headers, _Server, _SessionId) ->
     Headers. %% TODO
