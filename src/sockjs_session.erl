@@ -57,17 +57,15 @@ pop_from_queue(Q) ->
     {PoppedRev, Rest} = pop_from_queue(any, [], Q),
     {lists:reverse(PoppedRev), Rest}.
 
-pop_from_queue(any, [], Q) ->
-    case queue:out(Q) of
-        {empty, Q}                     -> {[], Q};
-        {{value, Val = {Type, _}}, Q2} -> pop_from_queue(Type, [Val], Q2)
-    end;
-pop_from_queue(Type, Acc, Q) ->
+pop_from_queue(TypeAcc, Acc, Q) ->
     case queue:peek(Q) of
         empty              -> {Acc, Q};
-        {value, {Type, _}} -> {{value, Val}, Q2} = queue:out(Q),
-                              pop_from_queue(Type, [Val | Acc], Q2);
-        {value, {_, _}}    -> {Acc, Q}
+        {value, {Type, _}} -> if TypeAcc =:= any orelse TypeAcc =:= Type ->
+                                      {{value, Val}, Q2} = queue:out(Q),
+                                      pop_from_queue(Type, [Val | Acc], Q2);
+                                 true ->
+                                      {Acc, Q}
+                              end
     end.
 
 spid(SessionId) ->
