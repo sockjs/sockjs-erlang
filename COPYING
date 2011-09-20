@@ -1,0 +1,4 @@
+This project currently contains a copy of mochijson2.erl from
+Mochiweb. See LICENSE-MIT-Mochiweb.
+
+All other code is released on MIT license, see LICENSE-MIT-SockJS.
