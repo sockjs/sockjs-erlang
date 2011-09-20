@@ -79,13 +79,12 @@ init(SessionId) ->
 
 handle_call({reply, Pid}, _From, State = #session{response_pid   = RPid,
                                                   outbound_queue = Q}) ->
-    case pop_from_queue(Q) of
-        {[], _} ->
-            {reply, case RPid of
-                        undefined -> wait;
-                        _         -> session_in_use
-                    end, State#session{response_pid = Pid}};
-        {Popped, Rest} ->
+    case {pop_from_queue(Q), RPid} of
+        {{[], _}, undefined} ->
+            {reply, wait, State#session{response_pid = Pid}};
+        {{[], _}, _} ->
+            {reply, session_in_use, State};
+        {{Popped, Rest}, _} ->
             {reply, sockjs_util:encode_list(Popped),
              State#session{outbound_queue = Rest,
                            response_pid   = undefined}}
