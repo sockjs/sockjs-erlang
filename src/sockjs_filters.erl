@@ -159,9 +159,9 @@ chunking_test(Req, _Server, _SessionId, _Receive) ->
                         {3125, Write, <<"h">>}]).
 
 chunking_loop(Req,  []) -> Req:chunk(done);
-chunking_loop(_Req, [{Timeout, Write, Payload} | Rest]) ->
+chunking_loop(Req, [{Timeout, Write, Payload} | Rest]) ->
     Write(Payload),
-    timer:apply_after(Timeout, ?MODULE, chunking_loop, Rest).
+    timer:apply_after(Timeout, ?MODULE, chunking_loop, [Req, Rest]).
 
 welcome_screen(Req, _Server, _SessionId, _Receive) ->
     Req:ok([{"Content-Type", "text/plain; charset=UTF-8"}],
