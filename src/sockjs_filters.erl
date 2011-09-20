@@ -4,7 +4,8 @@
 -export([xhr_polling/5, xhr_streaming/5, xhr_send/5, jsonp/5, jsonp_send/5,
          iframe/5, eventsource/5, htmlfile/5, chunking_test/5,
          welcome_screen/5]).
--export([cache_for/4]).
+-export([cache_for/4, h_sid/4, h_no_cache/4, xhr_cors/4, expect_xhr/4,
+         expect_form/4]).
 -export([chunking_loop/2]).
 
 -define(IFRAME, "<!DOCTYPE html>
@@ -73,16 +74,16 @@ filters() ->
     %% websocket does not actually go via handle_req/3 but we need
     %% something in dispatch/2
     [{t("/websocket"),               {dummy,          []}},
-     {t("/xhr_send"),                {xhr_send,       []}},
-     {t("/xhr"),                     {xhr_polling,    []}},
-     {t("/xhr_streaming"),           {xhr_streaming,  []}},
-     {t("/jsonp_send"),              {jsonp_send,     []}},
-     {t("/jsonp"),                   {jsonp,          []}},
-     {t("/eventsource"),             {eventsource,    []}},
-     {t("/htmlfile"),                {htmlfile,       []}},
+     {t("/xhr_send"),                {xhr_send,       [h_sid, xhr_cors, expect_xhr]}},
+     {t("/xhr"),                     {xhr_polling,    [h_sid, xhr_cors]}},
+     {t("/xhr_streaming"),           {xhr_streaming,  [h_sid, xhr_cors]}},
+     {t("/jsonp_send"),              {jsonp_send,     [h_sid, expect_form]}},
+     {t("/jsonp"),                   {jsonp,          [h_sid, h_no_cache]}},
+     {t("/eventsource"),             {eventsource,    [h_sid, h_no_cache]}},
+     {t("/htmlfile"),                {htmlfile,       [h_sid, h_no_cache]}},
      {p(""),                         {welcome_screen, []}},
      {p("/iframe[0-9-.a-z_]*.html"), {iframe,         [cache_for]}},
-     {p("/chunking_test"),           {chunking_test,  []}}
+     {p("/chunking_test"),           {chunking_test,  [h_sid, xhr_cors, expect_xhr]}}
     ].
 
 %% TODO make relocatable (here?)
@@ -131,7 +132,7 @@ iframe(Req, Headers, _Server, _SessionId, _Receive) ->
     {ok, URL} = application:get_env(sockjs, sockjs_url),
     IFrame = fmt(?IFRAME, [URL]),
     MD5 = "\"" ++ binary_to_list(base64:encode(erlang:md5(IFrame))) ++ "\"",
-    case proplists:get_value('If-None-Match', Req:get(headers)) of
+    case header(Req, 'If-None-Match') of
         MD5 -> Req:respond(304, "");
         _   -> Req:ok([{"Content-Type", "text/html; charset=UTF-8"},
                        {"ETag",         MD5}] ++ Headers, IFrame)
@@ -183,12 +184,47 @@ cache_for(_Req, Headers, _Server, _SessionId) ->
     [{"Cache-Control", "public, max-age=" ++ integer_to_list(Year)},
      {"Expires",       httpd_util:rfc1123_date(Expires)}] ++ Headers.
 
+h_sid(Req, Headers, _Server, _SessionId) ->
+    %% Some load balancers do sticky sessions, but only if there is
+    %% a JSESSIONID cookie. If this cookie isn't yet set, we shall
+    %% set it to a dumb value. It doesn't really matter what, as
+    %% session information is usually added by the load balancer.
+    case Req:get_cookie_value('JSESSIONID', Req:get_cookies()) of
+        undefined -> [Req:set_cookie('JSESSIONID', "a") | Headers];
+        _         -> Headers
+    end.
+
+h_no_cache(_Req, Headers, _Server, _SessionId) ->
+    [{"Cache-Control", "no-store, no-cache, must-revalidate, max-age=0"}] ++
+        Headers.
+
+xhr_cors(Req, Headers, _Server, _SessionId) ->
+    Origin = case header(Req, origin) of
+                 undefined -> "*";
+                 O         -> O
+             end,
+    AllowHeaders = case header(Req, 'access-control-request-headers') of
+                       undefined -> [];
+                       V         -> [{"Access-Control-Allow-Headers", V}]
+                   end,
+    [{"Access-Control-Allow-Origin",      Origin},
+     {"Access-Control-Allow-Credentials", "true"}] ++ AllowHeaders ++ Headers.
+
+expect_xhr(_Req, Headers, _Server, _SessionId) ->
+    Headers. %% TODO
+
+expect_form(_Req, Headers, _Server, _SessionId) ->
+    Headers. %% TODO
+
 %% --------------------------------------------------------------------------
 
 receive_body(Body, SessionId, Receive) ->
     Decoded = mochijson2:decode(Body),
     Sender = sockjs_session:sender(SessionId),
     [Receive(Sender, {recv, Msg}) || Msg <- Decoded].
+
+header(Req, Name) ->
+    proplists:get_value(Name, Req:get(headers)).
 
 headers(Req, Headers) ->
     headers(Req, Headers, "application/javascript; charset=UTF-8").
