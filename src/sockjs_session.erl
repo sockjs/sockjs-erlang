@@ -3,14 +3,15 @@
 -behaviour(sockjs_sender).
 -behaviour(gen_server).
 
--export([init/0, start_link/1, maybe_create/2, sender/1, reply/1]).
+-export([init/0, start_link/1, maybe_create/2, sender/1, reply/2]).
 
 -export([send/2, close/3]).
 
 -export([init/1, handle_call/3, handle_info/2, terminate/2, code_change/3,
          handle_cast/2]).
 
--record(session, {id, outbound_queue = queue:new(), response_pid}).
+-record(session, {id, outbound_queue = queue:new(), response_pid,
+                  closed = false, close_msg}).
 -define(ETS, sockjs_table).
 
 init() ->
@@ -40,8 +41,8 @@ enqueue(Cmd, SessionId) ->
 
 sender(SessionId) -> {?MODULE, SessionId}.
 
-reply(SessionId) ->
-    gen_server:call(spid(SessionId), {reply, self()}, infinity).
+reply(SessionId, Once) ->
+    gen_server:call(spid(SessionId), {reply, self(), Once}, infinity).
 
 %% --------------------------------------------------------------------------
 
@@ -51,19 +52,13 @@ pop_from_queue(Q) ->
 
 pop_from_queue(TypeAcc, Acc, Q) ->
     case queue:peek(Q) of
-        empty ->
-            {Acc, Q};
-        {value, {Type, _}} ->
-            if TypeAcc =:= any orelse TypeAcc =:= Type ->
-                    {{value, Val}, Q2} = queue:out(Q),
-                    %% Serve close forever
-                    case Type of
-                        close -> {[Val | Acc], Q};
-                        _     -> pop_from_queue(Type, [Val | Acc], Q2)
-                    end;
-               true ->
-                    {Acc, Q}
-            end
+        empty              -> {Acc, Q};
+        {value, {Type, _}} -> if TypeAcc =:= any orelse TypeAcc =:= Type ->
+                                      {{value, Val}, Q2} = queue:out(Q),
+                                      pop_from_queue(Type, [Val | Acc], Q2);
+                                 true ->
+                                      {Acc, Q}
+                              end
     end.
 
 spid(SessionId) ->
@@ -72,22 +67,36 @@ spid(SessionId) ->
         [{_, SPid}] -> SPid
     end.
 
+maybe_close([{close, _}] = Msg, State = #session{closed = false}) ->
+    State#session{closed = true, close_msg = Msg};
+maybe_close([{close, _}],       _State) ->
+    exit(assertion_failed);
+maybe_close(_,                  State) ->
+    State.
+
 %% --------------------------------------------------------------------------
 
 init(SessionId) ->
     {ok, #session{id = SessionId}}.
 
-handle_call({reply, Pid}, _From, State = #session{response_pid   = RPid,
-                                                  outbound_queue = Q}) ->
+%% For non-streaming transports we want to send a closed message every time
+%% we are asked - for streaming transports we only want to send it once.
+handle_call({reply, _Pid, true}, _From, State = #session{closed    = true,
+                                                         close_msg = Msg}) ->
+    {reply, sockjs_util:encode_list(Msg), State};
+
+handle_call({reply, Pid, _Once}, _From, State = #session{response_pid   = RPid,
+                                                         outbound_queue = Q}) ->
     case {pop_from_queue(Q), RPid} of
         {{[], _}, undefined} ->
             {reply, wait, State#session{response_pid = Pid}};
         {{[], _}, _} ->
             {reply, session_in_use, State};
         {{Popped, Rest}, _} ->
+            State1 = maybe_close(Popped, State),
             {reply, sockjs_util:encode_list(Popped),
-             State#session{outbound_queue = Rest,
-                           response_pid   = undefined}}
+             State1#session{outbound_queue = Rest,
+                            response_pid   = undefined}}
     end;
 
 handle_call(Request, _From, State) ->

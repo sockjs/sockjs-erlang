@@ -269,7 +269,7 @@ headers(Req, Headers, ContentType) ->
     Req:chunk(head, [{"Content-Type", ContentType}] ++ Headers).
 
 reply_loop(Req, SessionId, Once, Fmt) ->
-    case sockjs_session:reply(SessionId) of
+    case sockjs_session:reply(SessionId, Once) of
         wait           -> receive
                               go -> reply_loop(Req, SessionId, Once, Fmt)
                           after 5000 ->
