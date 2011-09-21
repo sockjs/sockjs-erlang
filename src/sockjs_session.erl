@@ -88,7 +88,7 @@ handle_call({reply, _Pid, true}, _From, State = #session{closed    = true,
 handle_call({reply, Pid, _Once}, _From, State = #session{response_pid   = RPid,
                                                          outbound_queue = Q}) ->
     case {pop_from_queue(Q), RPid} of
-        {{[], _}, undefined} ->
+        {{[], _}, P} when P =:= undefined orelse P =:= Pid ->
             {reply, wait, State#session{response_pid = Pid}};
         {{[], _}, _} ->
             {reply, session_in_use, State};
