@@ -23,7 +23,7 @@ priv/www:
 deps/sockjs-client:
 	-mkdir -p deps
 	cd deps && \
-		git clone https://github.com/majek/sockjs-client.git
+		git clone https://github.com/sockjs/sockjs-client.git
 
 deps/misultin:
 	-mkdir -p deps
