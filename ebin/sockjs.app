@@ -4,5 +4,6 @@
   {modules, []},
   {registered, []},
   {mod, {sockjs_app, []}},
-  {env, [{sockjs_url, "/lib/sockjs.js"}]},
+  {env, [{sockjs_url,   "/lib/sockjs.js"},
+         {heartbeat_ms, 25000}]},
   {applications, [kernel, stdlib]}]}.

@@ -269,10 +269,11 @@ headers(Req, Headers, ContentType) ->
     Req:chunk(head, [{"Content-Type", ContentType}] ++ Headers).
 
 reply_loop(Req, SessionId, Once, Fmt) ->
+    {ok, Heartbeat} = application:get_env(sockjs, heartbeat_ms),
     case sockjs_session:reply(SessionId, Once) of
         wait           -> receive
                               go -> reply_loop(Req, SessionId, Once, Fmt)
-                          after 5000 ->
+                          after Heartbeat ->
                                   chunk(Req, <<"h">>, Fmt),
                                   reply_loop0(Req, SessionId, Once, Fmt)
                           end;
