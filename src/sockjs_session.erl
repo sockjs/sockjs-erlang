@@ -3,29 +3,30 @@
 -behaviour(sockjs_sender).
 -behaviour(gen_server).
 
--export([init/0, start_link/1, maybe_create/2, sender/1, reply/2]).
+-export([init/0, start_link/2, maybe_create/2, sender/1, reply/2]).
 
 -export([send/2, close/3]).
 
 -export([init/1, handle_call/3, handle_info/2, terminate/2, code_change/3,
          handle_cast/2]).
 
--record(session, {id, outbound_queue = queue:new(), response_pid,
+-record(session, {id, outbound_queue = queue:new(), response_pid, receiver,
                   session_timeout, closed = false, close_msg}).
 -define(ETS, sockjs_table).
 
 init() ->
     ets:new(?ETS, [public, named_table]).
 
-start_link(SessionId) ->
-    gen_server:start_link(?MODULE, SessionId, []).
+start_link(SessionId, Receive) ->
+    gen_server:start_link(?MODULE, {SessionId, Receive}, []).
 
 maybe_create(dummy, _) ->
     ok;
 
 maybe_create(SessionId, Receive) ->
     case ets:lookup(?ETS, SessionId) of
-        []          -> {ok, SPid} = sockjs_session_sup:start_child(SessionId),
+        []          -> {ok, SPid} = sockjs_session_sup:start_child(
+                                      SessionId, Receive),
                        enqueue({open, nil}, SessionId),
                        Receive({?MODULE, SessionId}, init),
                        SPid;
@@ -90,10 +91,10 @@ reply(Reply, Pid, State = #session{response_pid = Pid}) ->
 
 %% --------------------------------------------------------------------------
 
-init(SessionId) ->
+init({SessionId, Receive}) ->
     ets:insert(?ETS, {SessionId, self()}),
     process_flag(trap_exit, true),
-    {ok, #session{id = SessionId}}.
+    {ok, #session{id = SessionId, receiver = Receive}}.
 
 %% For non-streaming transports we want to send a closed message every time
 %% we are asked - for streaming transports we only want to send it once.
@@ -141,8 +142,10 @@ handle_info(session_timeout, State = #session{response_pid = undefined}) ->
 handle_info(Info, State) ->
     {stop, {odd_info, Info}, State}.
 
-terminate(_Reason, #session{id = ID}) ->
-    ets:delete(?ETS, ID),
+terminate(_Reason, #session{id       = SessionId,
+                            receiver = Receive}) ->
+    Receive({?MODULE, SessionId}, closed),
+    ets:delete(?ETS, SessionId),
     ok.
 
 code_change(_OldVsn, State, _Extra) ->
