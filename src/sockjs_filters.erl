@@ -45,7 +45,7 @@ handle_req(Req, Path, Dispatcher) ->
     Method = Req:get(method),
     case dispatch(Method, Path, Dispatcher) of
         {Receive, Server, SessionId, {SendRecv, Action, Filters}} ->
-            io:format("~s ~s~n", [Method, Path]),
+            %%io:format("~s ~s~n", [Method, Path]),
             Headers = lists:foldl(
                         fun (F, Headers0) ->
                                 sockjs_filters:F(Req, Headers0,

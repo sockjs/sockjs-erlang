@@ -44,7 +44,7 @@ config_js(Req) ->
 
 ws_loop(Ws) ->
     Path = clean_path(Ws:get(path)),
-    io:format("~s ~s~n", ["WS", Path]),
+    %%io:format("~s ~s~n", ["WS", Path]),
     {Fun, _, _, _} = sockjs_filters:dispatch('GET', Path, dispatcher()),
     sockjs_ws:loop(Ws, Fun).
 
