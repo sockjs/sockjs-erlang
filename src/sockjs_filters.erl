@@ -255,7 +255,7 @@ expect_form(_Req, Headers, _Server, _SessionId) ->
 %% --------------------------------------------------------------------------
 
 receive_body(Body, SessionId, Receive) ->
-    Decoded = mochijson2:decode(Body),
+    Decoded = sockjs_util:decode(Body),
     Sender = sockjs_session:sender(SessionId),
     [Receive(Sender, {recv, Msg}) || Msg <- Decoded].
 
@@ -301,7 +301,7 @@ fmt_jsonp(Body, Callback) ->
     %% Yes, JSONed twice, there isn't a a better way, we must pass
     %% a string back, and the script, will be evaled() by the
     %% browser.
-    Double = iolist_to_binary(mochijson2:encode(Body)),
+    Double = sockjs_util:encode(Body),
     <<Callback/binary, "(", Double/binary, ");", $\r, $\n>>.
 
 fmt_eventsource(Body) ->
@@ -311,7 +311,7 @@ fmt_eventsource(Body) ->
     <<"data: ", Escaped/binary, $\r, $\n, $\r, $\n>>.
 
 fmt_htmlfile(Body) ->
-    Double = iolist_to_binary(mochijson2:encode(Body)),
+    Double = sockjs_util:encode(Body),
     <<"<script>", $\n, "p(", Double/binary, ");", $\n, "</script>", $\r, $\n>>.
 
 fmt(Fmt, Args) -> iolist_to_binary(io_lib:format(Fmt, Args)).

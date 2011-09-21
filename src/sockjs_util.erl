@@ -1,17 +1,29 @@
 -module(sockjs_util).
 
--export([enc/1, enc/2, encode_list/1]).
+-export([encode/1, encode/2, decode/1, encode_list/1]).
+-export([mochijson2/2, eep0018/2]).
 
 encode_list([{close, {Code, Reason}}]) ->
-    %% TODO shut down!
-    sockjs_util:enc("c", [Code, list_to_binary(Reason)]);
+    encode(<<"c">>, [Code, list_to_binary(Reason)]);
 encode_list([{open, _}]) ->
     <<"o">>;
 encode_list(L) ->
-    sockjs_util:enc("a", [D || {data, D} <- L]).
+    encode(<<"a">>, [D || {data, D} <- L]).
 
-enc(Thing) ->
-    iolist_to_binary(mochijson2:encode(Thing)).
+encode(Prefix, Thing) ->
+    JSON = encode(Thing),
+    <<Prefix/binary, JSON/binary>>.
 
-enc(Prefix, Thing) ->
-    iolist_to_binary([Prefix, mochijson2:encode(Thing)]).
+encode(Thing) ->
+    {ok, Encoder} = application:get_env(sockjs, json_impl),
+    sockjs_util:Encoder(Thing, encode).
+
+decode(Thing) ->
+    {ok, Encoder} = application:get_env(sockjs, json_impl),
+    sockjs_util:Encoder(Thing, decode).
+
+mochijson2(Thing, encode) -> iolist_to_binary(mochijson2:encode(Thing));
+mochijson2(JSON,  decode) -> mochijson2:decode(JSON).
+
+eep0018(Thing, encode) -> {ok, JSON}  = json:encode(Thing), JSON;
+eep0018(JSON,  decode) -> {ok, Thing} = json:decode(JSON), Thing.

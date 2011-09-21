@@ -9,10 +9,10 @@
 %% Where should framing happen? (Do we care?)
 
 send(Data, {?MODULE, Ws}) ->
-    Ws:send(["m", sockjs_util:enc(Data)]).
+    Ws:send(["m", sockjs_util:encode(Data)]).
 
 close(Code, Reason, {?MODULE, Ws}) ->
-    Ws:send(["c", sockjs_util:enc([Code, list_to_binary(Reason)])]),
+    Ws:send(["c", sockjs_util:encode([Code, list_to_binary(Reason)])]),
     exit(normal). %% TODO ?
 
 %% --------------------------------------------------------------------------
@@ -26,7 +26,7 @@ loop(Ws, Receive) ->
 loop0(Ws, Receive, Self) ->
     receive
         {browser, Data} ->
-            Decoded = mochijson2:decode(Data),
+            Decoded = sockjs_util:decode(Data),
             Receive(Self, {recv, Decoded}),
             loop0(Ws, Receive, Self);
         closed ->

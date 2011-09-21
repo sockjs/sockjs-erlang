@@ -6,5 +6,6 @@
   {mod, {sockjs_app, []}},
   {env, [{sockjs_url,       "/lib/sockjs.js"},
          {heartbeat_ms,     25000},
-         {session_close_ms, 5000}]},
+         {session_close_ms, 5000},
+         {json_impl,        mochijson2}]},
   {applications, [kernel, stdlib]}]}.
