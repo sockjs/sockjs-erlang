@@ -1,6 +1,6 @@
 Erlang-based server side component for SockJS. See:
 
-https://github.com/majek/sockjs-client
+https://github.com/sockjs/sockjs-client
 
 for more information on SockJS.
 
