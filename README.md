@@ -10,7 +10,6 @@ Currently this is somewhat limited:
 * ...and yet embeds mochijson2.
 * Supports WebSockets via Misultin (so no hybi-10!)
 * A couple of header-based things haven't been ported from the node server
-* Sessions never time out
 * Hasn't been tested much
 * Hasn't been performance-tested at all
 

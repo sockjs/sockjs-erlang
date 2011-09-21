@@ -11,7 +11,7 @@
          handle_cast/2]).
 
 -record(session, {id, outbound_queue = queue:new(), response_pid,
-                  closed = false, close_msg}).
+                  session_timeout, closed = false, close_msg}).
 -define(ETS, sockjs_table).
 
 init() ->
@@ -20,10 +20,12 @@ init() ->
 start_link(SessionId) ->
     gen_server:start_link(?MODULE, SessionId, []).
 
+maybe_create(dummy, _) ->
+    ok;
+
 maybe_create(SessionId, Receive) ->
     case ets:lookup(?ETS, SessionId) of
         []          -> {ok, SPid} = sockjs_session_sup:start_child(SessionId),
-                       ets:insert(?ETS, {SessionId, SPid}),
                        enqueue({open, nil}, SessionId),
                        Receive({?MODULE, SessionId}, init),
                        SPid;
@@ -74,29 +76,43 @@ maybe_close([{close, _}],       _State) ->
 maybe_close(_,                  State) ->
     State.
 
+reply(Reply, Pid, State = #session{response_pid    = undefined,
+                                   session_timeout = Ref}) ->
+    link(Pid),
+    case Ref of
+        undefined -> ok;
+        _         -> erlang:cancel_timer(Ref)
+    end,
+    reply(Reply, Pid, State#session{response_pid    = Pid,
+                                    session_timeout = undefined});
+reply(Reply, Pid, State = #session{response_pid = Pid}) ->
+    {reply, Reply, State}.
+
 %% --------------------------------------------------------------------------
 
 init(SessionId) ->
+    ets:insert(?ETS, {SessionId, self()}),
+    process_flag(trap_exit, true),
     {ok, #session{id = SessionId}}.
 
 %% For non-streaming transports we want to send a closed message every time
 %% we are asked - for streaming transports we only want to send it once.
-handle_call({reply, _Pid, true}, _From, State = #session{closed    = true,
-                                                         close_msg = Msg}) ->
-    {reply, sockjs_util:encode_list(Msg), State};
+handle_call({reply, Pid, true}, _From, State = #session{closed    = true,
+                                                        close_msg = Msg}) ->
+    reply(sockjs_util:encode_list(Msg), Pid, State);
 
 handle_call({reply, Pid, _Once}, _From, State = #session{response_pid   = RPid,
                                                          outbound_queue = Q}) ->
     case {pop_from_queue(Q), RPid} of
         {{[], _}, P} when P =:= undefined orelse P =:= Pid ->
-            {reply, wait, State#session{response_pid = Pid}};
+            reply(wait, Pid, State);
         {{[], _}, _} ->
+            %% don't use reply(), this shouldn't touch the session lifetime
             {reply, session_in_use, State};
         {{Popped, Rest}, _} ->
             State1 = maybe_close(Popped, State),
-            {reply, sockjs_util:encode_list(Popped),
-             State1#session{outbound_queue = Rest,
-                            response_pid   = undefined}}
+            reply(sockjs_util:encode_list(Popped), Pid,
+                  State1#session{outbound_queue = Rest})
     end;
 
 handle_call(Request, _From, State) ->
@@ -112,10 +128,21 @@ handle_cast({enqueue, Cmd}, State = #session{outbound_queue = Q,
 handle_cast(Cast, State) ->
     {stop, {odd_cast, Cast}, State}.
 
+handle_info({'EXIT', Pid, _Reason},
+            State = #session{response_pid = Pid}) ->
+    {ok, CloseTime} = application:get_env(sockjs, session_close_ms),
+    Ref = erlang:send_after(CloseTime, self(), session_timeout),
+    {noreply, State#session{response_pid    = undefined,
+                            session_timeout = Ref}};
+
+handle_info(session_timeout, State = #session{response_pid = undefined}) ->
+    {stop, normal, State};
+
 handle_info(Info, State) ->
     {stop, {odd_info, Info}, State}.
 
-terminate(_Reason, _State) ->
+terminate(_Reason, #session{id = ID}) ->
+    ets:delete(?ETS, ID),
     ok.
 
 code_change(_OldVsn, State, _Extra) ->
