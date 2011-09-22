@@ -43,7 +43,7 @@ deps/mochiweb:
 deps/eep0018:
 	-mkdir -p deps
 	cd deps && \
-		git clone https://github.com/davisp/eep0018.git.git
+		git clone https://github.com/davisp/eep0018.git
 
 clean::
 	rm -rf deps ebin/*.beam priv/www
