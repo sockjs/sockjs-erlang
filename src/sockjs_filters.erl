@@ -231,7 +231,7 @@ h_no_cache(_Req, Headers, _Server, _SessionId) ->
         Headers.
 
 xhr_cors(Req, Headers, _Server, _SessionId) ->
-    Origin = case header(Req, origin) of
+    Origin = case header(Req, 'origin') of
                  undefined -> "*";
                  O         -> O
              end,
@@ -260,7 +260,7 @@ receive_body(Body, SessionId, Receive) ->
     [Receive(Sender, {recv, Msg}) || Msg <- Decoded].
 
 header(Req, Name) ->
-    proplists:get_value(Name, Req:get(headers)).
+    misultin_utility:header_get_value(Name, Req:get(headers)).
 
 headers(Req, Headers) ->
     headers(Req, Headers, "application/javascript; charset=UTF-8").
