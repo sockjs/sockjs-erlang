@@ -190,8 +190,8 @@ welcome_screen(Req, Headers, _Server, _SessionId) ->
     Req:ok([{"Content-Type", "text/plain; charset=UTF-8"}] ++ Headers,
            "Welcome to SockJS!\n").
 
-options(Req, _Headers, _Server, _SessionId) ->
-    Req:respond(204).
+options(Req, Headers, _Server, _SessionId) ->
+    Req:respond(204, Headers, "").
 
 %% --------------------------------------------------------------------------
 
