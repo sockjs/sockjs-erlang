@@ -24,3 +24,6 @@ Some useful application configuration parameters:
  * default: 5000
 * **json_impl** - JSON library to use, mochijson2 or eep0018
  * default: mochijson2
+
+[Note that the tests test that you can send unicode strings containing \0.
+When using eep0018 you can't; it strips them out. So a few tests will fail.]
