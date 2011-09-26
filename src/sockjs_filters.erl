@@ -222,9 +222,10 @@ h_sid(Req, Headers, _Server, _SessionId) ->
     %% set it to a dumb value. It doesn't really matter what, as
     %% session information is usually added by the load balancer.
     case Req:get_cookie_value('JSESSIONID', Req:get_cookies()) of
-        undefined -> [Req:set_cookie('JSESSIONID', "a") | Headers];
-        _         -> Headers
-    end.
+        undefined -> Req:set_cookie('JSESSIONID', "a");
+        _         -> ok
+    end,
+    Headers.
 
 h_no_cache(_Req, Headers, _Server, _SessionId) ->
     [{"Cache-Control", "no-store, no-cache, must-revalidate, max-age=0"}] ++

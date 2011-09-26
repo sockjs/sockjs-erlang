@@ -33,7 +33,7 @@ deps/sockjs-client:
 deps/misultin:
 	-mkdir -p deps
 	cd deps && \
-		git clone https://github.com/majek/misultin.git
+		git clone -b dev https://github.com/ostinelli/misultin.git
 
 deps/mochiweb:
 	-mkdir -p deps
