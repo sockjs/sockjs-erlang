@@ -1,55 +1,18 @@
 -module(sockjs_test).
--export([start/0]).
+-export([start/0, dispatcher/0]).
 
 start() ->
     Port = 8080,
     application:start(sockjs),
-    {ok, _} = misultin:start_link([{loop,        fun loop/1},
-                                   {ws_loop,     fun ws_loop/1},
-                                   {ws_autoexit, false},
-                                   {port,        Port}]),
+    application:start(cowboy),
+    Dispatch = [{'_', [{'_', sockjs_cowboy_handler, []}]}],
+    cowboy:start_listener(http, 100,
+                          cowboy_tcp_transport, [{port,     Port}],
+                          cowboy_http_protocol, [{dispatch, Dispatch}]),
     io:format("~nRunning on port ~p~n~n", [Port]),
     receive
         _ -> ok
     end.
-
-loop(Req) ->
-    try
-        {abs_path, Path0} = Req:get(uri),
-        Path = clean_path(Path0),
-        case sockjs_filters:handle_req(Req, Path, dispatcher()) of
-            nomatch -> case Path of
-                           "config.js" -> config_js(Req);
-                           _           -> static(Req, Path)
-                       end;
-            _       -> ok
-        end
-    catch A:B ->
-            io:format("~s ~p ~p~n", [A, B, erlang:get_stacktrace()]),
-            Req:respond(500, [], "500")
-    end.
-
-static(Req, Path) ->
-    %% TODO unsafe
-    Req:file(filename:join([module_path(), "priv/www", Path])).
-
-module_path() ->
-    {file, Here} = code:is_loaded(?MODULE),
-    filename:dirname(filename:dirname(Here)).
-
-config_js(Req) ->
-    %% TODO parse the file? Good luck, it's JS not JSON.
-    Req:respond(200, [{"content-type", "application/javascript"}],
-                "var client_opts = {\"url\":\"http://localhost:8080\",\"disabled_transports\":[],\"sockjs_opts\":{\"devel\":true}};").
-
-ws_loop(Ws) ->
-    Path = clean_path(Ws:get(path)),
-    %%io:format("~s ~s~n", ["WS", Path]),
-    {Fun, _, _, _} = sockjs_filters:dispatch('GET', Path, dispatcher()),
-    sockjs_ws:loop(Ws, Fun).
-
-clean_path("/")         -> "index.html";
-clean_path("/" ++ Path) -> Path.
 
 %% --------------------------------------------------------------------------
 

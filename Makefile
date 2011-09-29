@@ -7,13 +7,15 @@ all: $(BEAM_TARGETS)
 
 test: test-prep all
 	erl -pa ebin -pa deps/misultin/ebin -pa deps/mochiweb/ebin \
-		-pa deps/eep0018/ebin -noinput -sockjs json_impl $(JSON) \
+		-pa deps/cowboy/ebin -pa deps/cowboy/deps/quoted/ebin \
+		-pa deps/eep0018/ebin -sockjs json_impl $(JSON) \
 		-run sockjs_test
 
-test-prep: deps/sockjs-client deps/misultin deps/mochiweb deps/eep0018 priv/www
+test-prep: deps/sockjs-client deps/misultin deps/cowboy deps/mochiweb deps/eep0018 priv/www
 	cd deps/sockjs-client && npm install
 	make -C deps/sockjs-client tests/html/lib/sockjs.js tests/html/lib/tests.js
 	make -C deps/misultin
+	make -C deps/cowboy
 	make -C deps/mochiweb
 	make -C deps/eep0018
 
@@ -34,6 +36,11 @@ deps/misultin:
 	-mkdir -p deps
 	cd deps && \
 		git clone -b dev https://github.com/ostinelli/misultin.git
+
+deps/cowboy:
+	-mkdir -p deps
+	cd deps && \
+		git clone -b dev https://github.com/extend/cowboy.git
 
 deps/mochiweb:
 	-mkdir -p deps

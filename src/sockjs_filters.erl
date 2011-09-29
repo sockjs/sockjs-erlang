@@ -42,31 +42,31 @@
   </script>").
 
 handle_req(Req, Path, Dispatcher) ->
-    Method = Req:get(method),
+    {Method, Req1} = cowboy_http_req:method(Req),
     case dispatch(Method, Path, Dispatcher) of
         {Receive, Server, SessionId, {SendRecv, Action, Filters}} ->
-            %%io:format("~s ~s~n", [Method, Path]),
+            io:format("~s ~s~n", [Method, Path]),
             Headers = lists:foldl(
                         fun (F, Headers0) ->
-                                sockjs_filters:F(Req, Headers0,
+                                sockjs_filters:F(Req1, Headers0,
                                                  Server, SessionId)
                         end, [], Filters),
             case SendRecv of
                 send ->
                     sockjs_session:maybe_create(SessionId, Receive),
-                    sockjs_filters:Action(Req, Headers, Server, SessionId);
+                    sockjs_filters:Action(Req1, Headers, Server, SessionId);
                 recv ->
                     try
-                        sockjs_filters:Action(Req, Headers, Server, SessionId,
+                        sockjs_filters:Action(Req1, Headers, Server, SessionId,
                                               Receive)
                     catch throw:no_session ->
-                            Req:respond(404)
+                            Req1:respond(404)
                     end
                 end;
         nomatch ->
             nomatch;
         bad_method ->
-            Req:respond(405)
+            Req1:respond(405)
     end.
 
 dispatch(Method, Path, Dispatcher) ->
@@ -128,21 +128,21 @@ re(Path, S) ->
 %% --------------------------------------------------------------------------
 
 xhr_polling(Req, Headers, _Server, SessionId) ->
-    headers(Req, Headers),
-    reply_loop(Req, SessionId, true, fun fmt_xhr/1).
+    Req1 = headers(Req, Headers),
+    reply_loop(Req1, SessionId, true, fun fmt_xhr/1).
 
 %% TODO Do something sensible with client closing timeouts
 xhr_streaming(Req, Headers, _Server, SessionId) ->
-    headers(Req, Headers),
+    Req1 = headers(Req, Headers),
     %% IE requires 2KB prefix:
     %% http://blogs.msdn.com/b/ieinternals/archive/2010/04/06/comet-streaming-in-internet-explorer-with-xmlhttprequest-and-xdomainrequest.aspx
-    chunk(Req, list_to_binary(string:copies("h", 2048)), fun fmt_xhr/1),
-    reply_loop(Req, SessionId, false, fun fmt_xhr/1).
+    chunk(Req1, list_to_binary(string:copies("h", 2048)), fun fmt_xhr/1),
+    reply_loop(Req1, SessionId, false, fun fmt_xhr/1).
 
 jsonp(Req, Headers, _Server, SessionId) ->
-    headers(Req, Headers),
-    CB = callback(Req),
-    reply_loop(Req, SessionId, true, fun (Body) -> fmt_jsonp(Body, CB) end).
+    Req1 = headers(Req, Headers),
+    CB = callback(Req1),
+    reply_loop(Req1, SessionId, true, fun (Body) -> fmt_jsonp(Body, CB) end).
 
 iframe(Req, Headers, _Server, _SessionId) ->
     {ok, URL} = application:get_env(sockjs, sockjs_url),
@@ -155,33 +155,33 @@ iframe(Req, Headers, _Server, _SessionId) ->
     end.
 
 eventsource(Req, Headers, _Server, SessionId) ->
-    headers(Req, Headers, "text/event-stream; charset=UTF-8"),
-    chunk(Req, <<$\r, $\n, $\r, $\n>>),
-    reply_loop(Req, SessionId, true, fun fmt_eventsource/1).
+    Req1 = headers(Req, Headers, "text/event-stream; charset=UTF-8"),
+    chunk(Req1, <<$\r, $\n, $\r, $\n>>),
+    reply_loop(Req1, SessionId, true, fun fmt_eventsource/1).
 
 htmlfile(Req, Headers, _Server, SessionId) ->
-    headers(Req, Headers, "text/html; charset=UTF-8"),
+    Req1 = headers(Req, Headers, "text/html; charset=UTF-8"),
     IFrame0 = fmt(?IFRAME_HTMLFILE, [callback(Req)]),
     %% Safari needs at least 1024 bytes to parse the website. Relevant:
     %%   http://code.google.com/p/browsersec/wiki/Part2#Survey_of_content_sniffing_behaviors
     Padding = list_to_binary(string:copies(" ", 1024 - size(IFrame0))),
     IFrame = <<IFrame0/binary, Padding/binary, $\r, $\n, $\r, $\n>>,
-    chunk(Req, IFrame),
-    reply_loop(Req, SessionId, false, fun fmt_htmlfile/1).
+    chunk(Req1, IFrame),
+    reply_loop(Req1, SessionId, false, fun fmt_htmlfile/1).
 
 chunking_test(Req, Headers, _Server, _SessionId) ->
-    headers(Req, Headers),
-    Write = fun(P) -> chunk(Req, P, fun fmt_xhr/1) end,
+    Req1 = headers(Req, Headers),
+    Write = fun(P) -> chunk(Req1, P, fun fmt_xhr/1) end,
     %% IE requires 2KB prelude
     Prelude = list_to_binary(string:copies(" ", 2048)),
-    chunking_loop(Req, [{0,    Write, <<Prelude/binary, "h">>},
-                        {5,    Write, <<"h">>},
-                        {25,   Write, <<"h">>},
-                        {125,  Write, <<"h">>},
-                        {625,  Write, <<"h">>},
-                        {3125, Write, <<"h">>}]).
+    chunking_loop(Req1, [{0,    Write, <<Prelude/binary, "h">>},
+                         {5,    Write, <<"h">>},
+                         {25,   Write, <<"h">>},
+                         {125,  Write, <<"h">>},
+                         {625,  Write, <<"h">>},
+                         {3125, Write, <<"h">>}]).
 
-chunking_loop(Req,  []) -> Req:chunk(done);
+chunking_loop(_Req,  []) -> ok;
 chunking_loop(Req, [{Timeout, Write, Payload} | Rest]) ->
     Write(Payload),
     timer:apply_after(Timeout, ?MODULE, chunking_loop, [Req, Rest]).
@@ -191,16 +191,17 @@ welcome_screen(Req, Headers, _Server, _SessionId) ->
            "Welcome to SockJS!\n").
 
 options(Req, Headers, _Server, _SessionId) ->
-    Req:respond(204, Headers, "").
+    reply(204, Headers, "", Req).
 
 %% --------------------------------------------------------------------------
 
 %% This is send but it receives - "send" from the client POV, receive
 %% from ours.
 xhr_send(Req, Headers, _Server, SessionId, Receive) ->
-    receive_body(Req:get(body), SessionId, Receive),
+    {ok, Body, Req2} = cowboy_http_req:body(Req),
+    receive_body(Body, SessionId, Receive),
     %% FF assumes that the response is XML.
-    Req:respond(204, [{"content-type", "text/plain"}] ++ Headers, "").
+    reply(204, [{"content-type", "text/plain"}] ++ Headers, "", Req2).
 
 jsonp_send(Req, Headers, _Server, SessionId, Receive) ->
     Body = proplists:get_value("d", Req:parse_post()),
@@ -221,11 +222,10 @@ h_sid(Req, Headers, _Server, _SessionId) ->
     %% a JSESSIONID cookie. If this cookie isn't yet set, we shall
     %% set it to a dumb value. It doesn't really matter what, as
     %% session information is usually added by the load balancer.
-    case Req:get_cookie_value('JSESSIONID', Req:get_cookies()) of
-        undefined -> Req:set_cookie('JSESSIONID', "a");
-        _         -> ok
-    end,
-    Headers.
+    case cowboy_http_req:cookie(<<"JSESSIONID">>, Req) of
+        {undefined, _} -> [{"Set-Cookie", "JSESSIONID=a"}];
+        {_,         _} -> []
+    end ++ Headers.
 
 h_no_cache(_Req, Headers, _Server, _SessionId) ->
     [{"Cache-Control", "no-store, no-cache, must-revalidate, max-age=0"}] ++
@@ -261,13 +261,17 @@ receive_body(Body, SessionId, Receive) ->
     [Receive(Sender, {recv, Msg}) || Msg <- Decoded].
 
 header(Req, Name) ->
-    misultin_utility:header_get_value(Name, Req:get(headers)).
+    {H, _} = cowboy_http_req:header(list_to_binary(atom_to_list(Name)), Req),
+    H.
 
 headers(Req, Headers) ->
     headers(Req, Headers, "application/javascript; charset=UTF-8").
 
 headers(Req, Headers, ContentType) ->
-    Req:chunk(head, [{"Content-Type", ContentType}] ++ Headers).
+    {ok, Req1} = cowboy_http_req:chunked_reply(
+                   200, enbinary([{"Content-Type", ContentType}] ++ Headers),
+                   Req),
+    Req1.
 
 reply_loop(Req, SessionId, Once, Fmt) ->
     {ok, Heartbeat} = application:get_env(sockjs, heartbeat_ms),
@@ -290,7 +294,7 @@ reply_loop0(Req, _SessionId, true, _Fmt) ->
 reply_loop0(Req, SessionId, false, Fmt) ->
     reply_loop(Req, SessionId, false, Fmt).
 
-chunk(Req, Body)      -> Req:chunk(Body).
+chunk(Req, Body)      -> cowboy_http_req:chunk(Body, Req).
 chunk(Req, Body, Fmt) -> chunk(Req, Fmt(Body)).
 
 callback(Req) ->
@@ -330,3 +334,8 @@ hex(C) ->
     High = integer_to_list(High0),
     Low = integer_to_list(Low0),
     "%" ++ High ++ Low.
+
+enbinary(L) -> [{list_to_binary(K), list_to_binary(V)} || {K, V} <- L].
+
+reply(Code, Headers, Body, Req) ->
+    cowboy_http_req:reply(Code, enbinary(Headers), list_to_binary(Body), Req).
