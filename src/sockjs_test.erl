@@ -86,8 +86,5 @@ test_broadcast(Conn, closed) ->
     true = ets:delete_object(broadcast_table, {Conn}),
     ok;
 test_broadcast(_Conn, {recv, Data}) ->
-    A = ets:foldl(fun({Conn}, Acc) ->
-                          Conn:send(Data),
-                          Acc+1
-                  end, 0, broadcast_table),
+    ets:foldl(fun({Conn}, _Acc) -> Conn:send(Data) end, [], broadcast_table),
     ok.
