@@ -12,8 +12,6 @@ test: test-prep all
 		-run sockjs_test
 
 test-prep: deps/sockjs-client deps/misultin deps/cowboy deps/mochiweb deps/eep0018 priv/www
-	cd deps/sockjs-client && npm install
-	make -C deps/sockjs-client tests/html/lib/sockjs.js tests/html/lib/tests.js
 	make -C deps/misultin
 	make -C deps/cowboy
 	make -C deps/mochiweb
