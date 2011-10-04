@@ -264,8 +264,11 @@ receive_body(Body, SessionId, Receive) ->
     [Receive(Sender, {recv, Msg}) || Msg <- Decoded].
 
 header(Req, Name) ->
-    {H, _} = cowboy_http_req:header(list_to_binary(atom_to_list(Name)), Req),
-    H.
+    {H, _} = cowboy_http_req:header(Name, Req),
+    case H of
+        undefined -> undefined;
+        _         -> binary_to_list(H)
+    end.
 
 headers(Req, Headers) ->
     headers(Req, Headers, "application/javascript; charset=UTF-8").
