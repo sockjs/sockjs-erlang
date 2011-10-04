@@ -286,7 +286,8 @@ reply_loop(Req, SessionId, Once, Fmt) ->
                                   reply_loop0(Req, SessionId, Once, Fmt)
                           end;
         session_in_use -> Err = sockjs_util:encode_list([{close, ?STILL_OPEN}]),
-                          chunk(Req, Err, Fmt);
+                          chunk(Req, Err, Fmt),
+                          Req;
         Reply          -> chunk(Req, Reply, Fmt),
                           reply_loop0(Req, SessionId, Once, Fmt)
     end.
