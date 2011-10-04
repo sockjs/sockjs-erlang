@@ -16,7 +16,7 @@ handle(Req, State) ->
                           end;
                _       -> ok
            end,
-    {ok, Req1, State}.
+    {ok, Req2, State}.
 
 terminate(Req, State) ->
     ok.
