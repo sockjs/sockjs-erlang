@@ -2,7 +2,7 @@
 -behaviour(cowboy_http_handler).
 -export([init/3, handle/2, terminate/2]).
 
-init({tcp, http}, Req, Opts) ->
+init({tcp, http}, Req, _Opts) ->
     {ok, Req, undefined_state}.
 
 handle(Req, State) ->
@@ -14,11 +14,11 @@ handle(Req, State) ->
                               "config.js" -> config_js(Req1);
                               _           -> static(Req1, Path)
                           end;
-               _       -> ok
+               R2      -> R2
            end,
     {ok, Req2, State}.
 
-terminate(Req, State) ->
+terminate(_Req, _State) ->
     ok.
 
 %% --------------------------------------------------------------------------
@@ -26,9 +26,14 @@ terminate(Req, State) ->
 static(Req, Path) ->
     %% TODO unsafe
     LocalPath = filename:join([module_path(), "priv/www", Path]),
-    {ok, Contents} = file:read_file(LocalPath),
-    {ok, Req1} = cowboy_http_req:reply(200, [], Contents, Req),
-    Req1.
+    case file:read_file(LocalPath) of
+        {ok, Contents} ->
+            {ok, Req1} = cowboy_http_req:reply(200, [], Contents, Req),
+            Req1;
+        {error, _} ->
+            {ok, Req1} = cowboy_http_req:reply(404, [], "", Req),
+            Req1
+    end.
 
 module_path() ->
     {file, Here} = code:is_loaded(?MODULE),

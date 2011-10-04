@@ -60,13 +60,13 @@ handle_req(Req, Path, Dispatcher) ->
                         sockjs_filters:Action(Req1, Headers, Server, SessionId,
                                               Receive)
                     catch throw:no_session ->
-                            Req1:respond(404)
+                            reply(404, [], "", Req1)
                     end
                 end;
         nomatch ->
             nomatch;
         bad_method ->
-            Req1:respond(405)
+            reply(405, [], "", Req1)
     end.
 
 dispatch(Method, Path, Dispatcher) ->
@@ -141,17 +141,17 @@ xhr_streaming(Req, Headers, _Server, SessionId) ->
 
 jsonp(Req, Headers, _Server, SessionId) ->
     Req1 = headers(Req, Headers),
-    CB = callback(Req1),
-    reply_loop(Req1, SessionId, true, fun (Body) -> fmt_jsonp(Body, CB) end).
+    {CB, Req2} = callback(Req1),
+    reply_loop(Req2, SessionId, true, fun (Body) -> fmt_jsonp(Body, CB) end).
 
 iframe(Req, Headers, _Server, _SessionId) ->
     {ok, URL} = application:get_env(sockjs, sockjs_url),
     IFrame = fmt(?IFRAME, [URL]),
     MD5 = "\"" ++ binary_to_list(base64:encode(erlang:md5(IFrame))) ++ "\"",
     case header(Req, 'If-None-Match') of
-        MD5 -> Req:respond(304, "");
-        _   -> Req:ok([{"Content-Type", "text/html; charset=UTF-8"},
-                       {"ETag",         MD5}] ++ Headers, IFrame)
+        MD5 -> reply(304, [], "", Req);
+        _   -> reply(200, [{"Content-Type", "text/html; charset=UTF-8"},
+                           {"ETag",         MD5}] ++ Headers, IFrame, Req)
     end.
 
 eventsource(Req, Headers, _Server, SessionId) ->
@@ -161,13 +161,14 @@ eventsource(Req, Headers, _Server, SessionId) ->
 
 htmlfile(Req, Headers, _Server, SessionId) ->
     Req1 = headers(Req, Headers, "text/html; charset=UTF-8"),
-    IFrame0 = fmt(?IFRAME_HTMLFILE, [callback(Req)]),
+    {CB, Req2} = callback(Req1),
+    IFrame0 = fmt(?IFRAME_HTMLFILE, [CB]),
     %% Safari needs at least 1024 bytes to parse the website. Relevant:
     %%   http://code.google.com/p/browsersec/wiki/Part2#Survey_of_content_sniffing_behaviors
     Padding = list_to_binary(string:copies(" ", 1024 - size(IFrame0))),
     IFrame = <<IFrame0/binary, Padding/binary, $\r, $\n, $\r, $\n>>,
-    chunk(Req1, IFrame),
-    reply_loop(Req1, SessionId, false, fun fmt_htmlfile/1).
+    chunk(Req2, IFrame),
+    reply_loop(Req2, SessionId, false, fun fmt_htmlfile/1).
 
 chunking_test(Req, Headers, _Server, _SessionId) ->
     Req1 = headers(Req, Headers),
@@ -181,14 +182,15 @@ chunking_test(Req, Headers, _Server, _SessionId) ->
                          {625,  Write, <<"h">>},
                          {3125, Write, <<"h">>}]).
 
-chunking_loop(_Req,  []) -> ok;
+chunking_loop(Req,  []) -> Req;
 chunking_loop(Req, [{Timeout, Write, Payload} | Rest]) ->
     Write(Payload),
-    timer:apply_after(Timeout, ?MODULE, chunking_loop, [Req, Rest]).
+    timer:apply_after(Timeout, ?MODULE, chunking_loop, [Req, Rest]),
+    Req.
 
 welcome_screen(Req, Headers, _Server, _SessionId) ->
-    Req:ok([{"Content-Type", "text/plain; charset=UTF-8"}] ++ Headers,
-           "Welcome to SockJS!\n").
+    reply(200, [{"Content-Type", "text/plain; charset=UTF-8"}] ++ Headers,
+          "Welcome to SockJS!\n", Req).
 
 options(Req, Headers, _Server, _SessionId) ->
     reply(204, Headers, "", Req).
@@ -204,9 +206,10 @@ xhr_send(Req, Headers, _Server, SessionId, Receive) ->
     reply(204, [{"content-type", "text/plain"}] ++ Headers, "", Req2).
 
 jsonp_send(Req, Headers, _Server, SessionId, Receive) ->
-    Body = proplists:get_value("d", Req:parse_post()),
+    {BodyQS, Req1} = cowboy_http_req:body_qs(Req),
+    Body = proplists:get_value(<<"d">>, BodyQS),
     receive_body(Body, SessionId, Receive),
-    Req:respond(200, Headers, "").
+    reply(200, Headers, "", Req1).
 
 %% --------------------------------------------------------------------------
 
@@ -283,14 +286,13 @@ reply_loop(Req, SessionId, Once, Fmt) ->
                                   reply_loop0(Req, SessionId, Once, Fmt)
                           end;
         session_in_use -> Err = sockjs_util:encode_list([{close, ?STILL_OPEN}]),
-                          chunk(Req, Err, Fmt),
-                          Req:chunk(done);
+                          chunk(Req, Err, Fmt);
         Reply          -> chunk(Req, Reply, Fmt),
                           reply_loop0(Req, SessionId, Once, Fmt)
     end.
 
 reply_loop0(Req, _SessionId, true, _Fmt) ->
-    Req:chunk(done);
+    Req;
 reply_loop0(Req, SessionId, false, Fmt) ->
     reply_loop(Req, SessionId, false, Fmt).
 
@@ -298,7 +300,7 @@ chunk(Req, Body)      -> cowboy_http_req:chunk(Body, Req).
 chunk(Req, Body, Fmt) -> chunk(Req, Fmt(Body)).
 
 callback(Req) ->
-    list_to_binary(proplists:get_value("c", Req:parse_qs())).
+    cowboy_http_req:qs_val(<<"c">>, Req).
 
 fmt_xhr(Body) -> <<Body/binary, $\n>>.
 
@@ -337,5 +339,9 @@ hex(C) ->
 
 enbinary(L) -> [{list_to_binary(K), list_to_binary(V)} || {K, V} <- L].
 
+reply(Code, Headers, Body, Req) when is_list(Body) ->
+    reply(Code, Headers, list_to_binary(Body), Req);
+
 reply(Code, Headers, Body, Req) ->
-    cowboy_http_req:reply(Code, enbinary(Headers), list_to_binary(Body), Req).
+    {ok, Req1} = cowboy_http_req:reply(Code, enbinary(Headers), Body, Req),
+    Req1.
