@@ -11,6 +11,7 @@ start() ->
                           cowboy_tcp_transport, [{port,     Port}],
                           cowboy_http_protocol, [{dispatch, Dispatch}]),
     io:format("~nRunning on port ~p~n~n", [Port]),
+    test_broadcast(start),
     receive
         _ -> ok
     end.
@@ -65,9 +66,10 @@ clean_path("/" ++ Path) -> Path.
 %% --------------------------------------------------------------------------
 
 dispatcher() ->
-    [{echo,    fun test_echo/2},
-     {close,   fun test_close/2},
-     {amplify, fun test_amplify/2}].
+    [{echo,      fun test_echo/2},
+     {close,     fun test_close/2},
+     {amplify,   fun test_amplify/2},
+     {broadcast, fun test_broadcast/2}].
 
 test_echo(Conn, {recv, Data}) -> Conn:send(Data);
 test_echo(_Conn, _)           -> ok.
@@ -82,4 +84,18 @@ test_amplify(Conn, {recv, Data}) ->
         end,
     Conn:send(list_to_binary(string:copies("x", round(math:pow(2, N)))));
 test_amplify(_Conn, _) ->
+    ok.
+
+
+test_broadcast(start) ->
+    ets:new(broadcast_table, [public, named_table]),
+    ok.
+test_broadcast(Conn, init) ->
+    true = ets:insert(broadcast_table, {Conn}),
+    ok;
+test_broadcast(Conn, closed) ->
+    true = ets:delete_object(broadcast_table, {Conn}),
+    ok;
+test_broadcast(_Conn, {recv, Data}) ->
+    ets:foldl(fun({Conn}, _Acc) -> Conn:send(Data) end, [], broadcast_table),
     ok.
