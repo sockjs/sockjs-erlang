@@ -1,17 +1,16 @@
-Erlang-based server side component for SockJS. See:
+Erlang-based server side component for SockJS. Can run on Cowboy or Misultin.
 
-https://github.com/sockjs/sockjs-client
-
-for more information on SockJS.
+See https://github.com/sockjs/sockjs-client for more information on SockJS.
 
 Currently this is somewhat limited:
 
-* Requires Misultin
 * A couple of header-based things haven't been ported from the node server
 * Hasn't been tested much
 * Hasn't been performance-tested at all
 
 Hopefully in future some of these restrictions will get improved.
+
+See the sockjs_test module for what passes for usage examples.
 
 Some useful application configuration parameters:
 
