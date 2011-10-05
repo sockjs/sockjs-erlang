@@ -18,7 +18,8 @@ init({tcp, http}, Req, {Handler, _WsHandler}) ->
     end.
 
 handle(Req, State = #state{handler = Handler}) ->
-    {ok, Handler(Req), State}.
+    {cowboy, Req1} = Handler({cowboy, Req}),
+    {ok, Req1, State}.
 
 terminate(_Req, _State) ->
     ok.
@@ -26,8 +27,8 @@ terminate(_Req, _State) ->
 %% --------------------------------------------------------------------------
 
 websocket_init(_TransportName, Req, {_Handler, WsHandler}) ->
-    {Receive, Req1} = WsHandler(Req),
-    Self = {?WS_MODULE, self()},
+    {Receive, {cowboy, Req1}} = WsHandler({cowboy, Req}),
+    Self = {?WS_MODULE, self(), cowboy},
     self() ! {send, ["o"]},
     Receive(Self, init),
     {ok, Req1, #ws_state{self = Self, recv = Receive}}.

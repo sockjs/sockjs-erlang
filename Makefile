@@ -2,6 +2,7 @@ ERLC_OPTS=-W -I include -o ebin
 SOURCES=$(wildcard src/*.erl)
 BEAM_TARGETS=$(patsubst src/%.erl, ebin/%.beam, $(SOURCES))
 JSON=mochijson2
+HTTP=cowboy
 
 all: $(BEAM_TARGETS)
 
@@ -9,6 +10,7 @@ test: test-prep all
 	erl -pa ebin -pa deps/misultin/ebin -pa deps/mochiweb/ebin \
 		-pa deps/cowboy/ebin -pa deps/cowboy/deps/quoted/ebin \
 		-pa deps/eep0018/ebin -sockjs json_impl $(JSON) \
+		-sockjs http_impl $(HTTP) \
 		-run sockjs_test
 
 test-prep: deps/sockjs-client deps/misultin deps/cowboy deps/mochiweb deps/eep0018 priv/www
