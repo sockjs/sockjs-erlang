@@ -25,3 +25,21 @@ Some useful application configuration parameters:
 
 [Note that the tests test that you can send unicode strings containing \0.
 When using eep0018 you can't; it strips them out. So a few tests will fail.]
+
+
+Development
+-----------
+
+To run tests you need to have `node` and `coffee-script` installed
+
+    cd sockjs-erlang
+    npm install coffee-script
+
+Now you're ready to run test server, if you want to use `cowboy`:
+
+    make test
+
+Or `misultin`:
+
+    make test HTTP=misultin
+
