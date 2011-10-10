@@ -236,12 +236,12 @@ h_no_cache(_Req, Headers, _Server, _SessionId) ->
         Headers.
 
 xhr_cors(Req, Headers, _Server, _SessionId) ->
-    Origin = case sockjs_http:header('origin', Req) of
+    Origin = case sockjs_http:header('Origin', Req) of
                  undefined -> "*";
                  O         -> O
              end,
     AllowHeaders = case sockjs_http:header(
-                          'access-control-request-headers', Req) of
+                          'Access-Control-Request-Headers', Req) of
                        undefined -> [];
                        V         -> [{"Access-Control-Allow-Headers", V}]
                    end,
