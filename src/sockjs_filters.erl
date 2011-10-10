@@ -156,7 +156,7 @@ iframe(Req, Headers, _Server, _SessionId) ->
 
 eventsource(Req, Headers, _Server, SessionId) ->
     Req1 = headers(Req, Headers, "text/event-stream; charset=UTF-8"),
-    chunk(Req1, <<$\r, $\n, $\r, $\n>>),
+    chunk(Req1, <<$\r, $\n>>),
     reply_loop(Req1, SessionId, true, fun fmt_eventsource/1).
 
 htmlfile(Req, Headers, _Server, SessionId) ->
