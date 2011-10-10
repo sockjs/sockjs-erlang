@@ -227,7 +227,7 @@ h_sid(Req, Headers, _Server, _SessionId) ->
     %% set it to a dumb value. It doesn't really matter what, as
     %% session information is usually added by the load balancer.
     case sockjs_http:jsessionid(Req) of
-        undefined -> [{"Set-Cookie", "JSESSIONID=a"}];
+        undefined -> [{"Set-Cookie", "JSESSIONID=dummy; path=/"}];
         _         -> []
     end ++ Headers.
 
