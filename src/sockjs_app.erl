@@ -4,7 +4,7 @@
 
 -export([start/2, stop/1]).
 
-start(_Type, _StartArgs) ->
+start(_StartType, _StartArgs) ->
     sockjs_session:init(),
     sockjs_session_sup:start_link().
 
