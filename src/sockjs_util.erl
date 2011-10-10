@@ -23,7 +23,12 @@ decode(Thing) ->
     sockjs_util:Encoder(Thing, decode).
 
 mochijson2(Thing, encode) -> iolist_to_binary(mochijson2:encode(Thing));
-mochijson2(JSON,  decode) -> mochijson2:decode(JSON).
+mochijson2(JSON,  decode) ->
+    try mochijson2:decode(JSON) of
+        V -> {ok, V}
+    catch
+        E -> {error, E}
+    end.
 
 eep0018(Thing, encode) -> {ok, JSON}  = json:encode(Thing), JSON;
-eep0018(JSON,  decode) -> {ok, Thing} = json:decode(JSON), Thing.
+eep0018(JSON,  decode) -> json:decode(JSON).

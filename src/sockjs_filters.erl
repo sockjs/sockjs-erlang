@@ -216,21 +216,35 @@ options(Req, Headers, _Server, _SessionId) ->
     sockjs_http:reply(204, Headers, "", Req).
 
 %% --------------------------------------------------------------------------
-
 %% This is send but it receives - "send" from the client POV, receive
 %% from ours.
 xhr_send(Req, Headers, _Server, SessionId, Receive) ->
     {Body, Req1} = sockjs_http:body(Req),
-    receive_body(Body, SessionId, Receive),
-    %% FF assumes that the response is XML.
-    sockjs_http:reply(204,
-                      [{"content-type", "text/plain"}] ++ Headers, "", Req1).
+    Success = fun () -> sockjs_http:reply(204,
+                                          [{"content-type", "text/plain"}] ++
+                                              Headers, "", Req1) end,
+    verify_body(Req1, Body, SessionId, Receive, Success).
 
 jsonp_send(Req, Headers, _Server, SessionId, Receive) ->
     {Body, Req1} = sockjs_http:body_qs(Req),
-    receive_body(Body, SessionId, Receive),
-    sockjs_http:reply(200, Headers, "", Req1).
+    Success = fun () -> sockjs_http:reply(200, Headers, "ok", Req) end,
+    verify_body(Req1, Body, SessionId, Receive, Success).
 
+verify_body(Req, Body, SessionId, Receive, Success) ->
+    case Body of
+        E when E =:= undefined orelse E =:= [] orelse E =:= <<>> ->
+            sockjs_http:reply(500, [],
+                              "Payload expected.", Req);
+        _ ->
+            case sockjs_util:decode(Body) of
+                 {ok, Decoded} ->
+                     receive_body(Decoded, SessionId, Receive),
+                     Success();
+                 {error, _} ->
+                     sockjs_http:reply(500, [],
+                                       "Broken JSON encoding.", Req)
+             end
+    end.
 %% --------------------------------------------------------------------------
 
 cache_for(_Req, Headers, _Server, _SessionId) ->
@@ -279,8 +293,7 @@ expect_form(_Req, Headers, _Server, _SessionId) ->
 
 %% --------------------------------------------------------------------------
 
-receive_body(Body, SessionId, Receive) ->
-    Decoded = sockjs_util:decode(Body),
+receive_body(Decoded, SessionId, Receive) ->
     Sender = sockjs_session:sender(SessionId),
     [Receive(Sender, {recv, Msg}) || Msg <- Decoded].
 
