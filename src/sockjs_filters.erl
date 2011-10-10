@@ -6,7 +6,6 @@
 -export([xhr_send/5, jsonp_send/5]).
 -export([cache_for/4, h_sid/4, h_no_cache/4, xhr_cors/4, xhr_options/4,
          expect_xhr/4, expect_form/4]).
--export([chunking_loop/2]).
 
 -define(YEAR, 365 * 24 * 60 * 60).
 -define(STILL_OPEN, {2010, "Another connection still open"}).
@@ -110,7 +109,7 @@ filters() ->
      {t("/htmlfile"),                [{'GET',     send, htmlfile,       [h_sid, h_no_cache]}]},
      {p(""),                         [{'GET',     send, welcome_screen, []}]},
      {p("/iframe[0-9-.a-z_]*.html"), [{'GET',     send, iframe,         [cache_for]}]},
-     {p("/chunking_test"),           [{'POST',    send, chunking_test,  [h_sid, xhr_cors, expect_xhr]},
+     {p("/chunking_test"),           [{'POST',    send, chunking_test,  [xhr_cors, expect_xhr]},
                                       {'OPTIONS', send, options,        OptsFilters}]}
     ].
 
@@ -161,33 +160,44 @@ eventsource(Req, Headers, _Server, SessionId) ->
     reply_loop(Req1, SessionId, true, fun fmt_eventsource/1).
 
 htmlfile(Req, Headers, _Server, SessionId) ->
-    Req1 = headers(Req, Headers, "text/html; charset=UTF-8"),
-    {CB, Req2} = sockjs_http:callback(Req1),
-    IFrame0 = fmt(?IFRAME_HTMLFILE, [CB]),
-    %% Safari needs at least 1024 bytes to parse the website. Relevant:
-    %%   http://code.google.com/p/browsersec/wiki/Part2#Survey_of_content_sniffing_behaviors
-    Padding = list_to_binary(string:copies(" ", 1024 - size(IFrame0))),
-    IFrame = <<IFrame0/binary, Padding/binary, $\r, $\n, $\r, $\n>>,
-    chunk(Req2, IFrame),
-    reply_loop(Req2, SessionId, false, fun fmt_htmlfile/1).
+    {CB, Req1} = sockjs_http:callback(Req),
+    case CB of
+        undefined ->
+            sockjs_http:reply(500, [], "\"callback\" parameter required", Req);
+        _ ->
+            Req2 = headers(Req1, Headers, "text/html; charset=UTF-8"),
+            IFrame0 = fmt(?IFRAME_HTMLFILE, [CB]),
+            %% Safari needs at least 1024 bytes to parse the
+            %% website. Relevant:
+            %%   http://code.google.com/p/browsersec/wiki/Part2#Survey_of_content_sniffing_behaviors
+            Padding = list_to_binary(string:copies(" ", 1024 - size(IFrame0))),
+            IFrame = <<IFrame0/binary, Padding/binary, $\r, $\n, $\r, $\n>>,
+            chunk(Req2, IFrame),
+            reply_loop(Req2, SessionId, false, fun fmt_htmlfile/1)
+    end.
 
 chunking_test(Req, Headers, _Server, _SessionId) ->
     Req1 = headers(Req, Headers),
-    Write = fun(P) -> chunk(Req1, P, fun fmt_xhr/1) end,
     %% IE requires 2KB prelude
     Prelude = list_to_binary(string:copies(" ", 2048)),
-    chunking_loop(Req1, [{0,    Write, <<Prelude/binary, "h">>},
-                         {5,    Write, <<"h">>},
-                         {25,   Write, <<"h">>},
-                         {125,  Write, <<"h">>},
-                         {625,  Write, <<"h">>},
-                         {3125, Write, <<"h">>}]).
+    chunking_loop(Req1, [{0,    <<Prelude/binary, "h">>},
+                         {5,    <<"h">>},
+                         {25,   <<"h">>},
+                         {125,  <<"h">>},
+                         {625,  <<"h">>},
+                         {3125, <<"h">>}]).
 
-chunking_loop(Req,  []) -> Req;
-chunking_loop(Req, [{Timeout, Write, Payload} | Rest]) ->
-    Write(Payload),
-    timer:apply_after(Timeout, ?MODULE, chunking_loop, [Req, Rest]),
-    Req.
+chunking_loop(Req,  []) ->
+    sockjs_http:chunk_end(Req),
+    Req;
+chunking_loop(Req, [{Timeout, Payload} | Rest]) ->
+    timer:sleep(Timeout),
+    R = chunk(Req, Payload, fun fmt_xhr/1),
+    Rest1 = case R of
+                ok -> Rest;
+                _ -> []
+            end,
+    chunking_loop(Req, Rest1).
 
 welcome_screen(Req, Headers, _Server, _SessionId) ->
     sockjs_http:reply(200, [{"Content-Type", "text/plain; charset=UTF-8"}] ++ Headers,

@@ -74,8 +74,15 @@ chunk_start(_Code, Headers, {misultin, Req} = R) ->
     Req:chunk(head, Headers),
     R.
 
-chunk(Chunk, {cowboy, Req})   -> cowboy_http_req:chunk(Chunk, Req);
-chunk(Chunk, {misultin, Req}) -> Req:chunk(Chunk).
+chunk(Chunk, {cowboy, Req})   -> case cowboy_http_req:chunk(Chunk, Req) of
+                                     ok -> ok;
+                                     {error, _} -> error
+                                 end;
+chunk(Chunk, {misultin, Req}) -> case Req:chunk(Chunk) of
+                                     {stream_data, _} -> ok
+                                     %% Misultin just kills the
+                                     %% process on connection error.
+                                 end.
 
 chunk_end({cowboy, _Req} = R)  -> R;
 chunk_end({misultin, Req} = R) -> Req:chunk(done),
