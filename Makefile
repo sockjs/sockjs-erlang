@@ -6,11 +6,10 @@ all: deps
 
 deps:
 	rebar get-deps
-	make -C deps/cowboy
 
 test: test-prep all
 	erl -pa ebin -pa deps/misultin/ebin -pa deps/mochiweb/ebin \
-		-pa deps/cowboy/ebin -pa deps/cowboy/deps/quoted/ebin \
+		-pa deps/cowboy/ebin -pa deps/quoted/ebin \
 		-pa deps/eep0018/ebin -sockjs json_impl $(JSON) \
 		-sockjs http_impl $(HTTP) \
 		-run sockjs_test
@@ -33,5 +32,5 @@ clean::
 	rebar clean
 	rm -rf priv/www
 
-distclean:: clean
+distclean::
 	rm -rf deps priv
