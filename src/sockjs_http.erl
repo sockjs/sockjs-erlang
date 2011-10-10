@@ -56,7 +56,10 @@ header(K, {cowboy, Req})->
     end;
 
 header(K, {misultin, Req}) ->
-    misultin_utility:header_get_value(K, Req:get(headers)).
+    case misultin_utility:header_get_value(K, Req:get(headers)) of
+        false -> undefined;
+        V -> V
+    end.
 
 reply(Code, Headers, Body, {cowboy, Req}) when is_list(Body) ->
     reply(Code, Headers, list_to_binary(Body), {cowboy, Req});
