@@ -139,9 +139,12 @@ xhr_streaming(Req, Headers, _Server, SessionId) ->
     reply_loop(Req1, SessionId, false, fun fmt_xhr/1).
 
 jsonp(Req, Headers, _Server, SessionId) ->
-    Req1 = headers(Req, Headers),
-    {CB, Req2} = sockjs_http:callback(Req1),
-    reply_loop(Req2, SessionId, true, fun (Body) -> fmt_jsonp(Body, CB) end).
+    S = fun (CB) ->
+                Req1 = headers(Req, Headers),
+                reply_loop(Req1, SessionId, true,
+                           fun (Body) -> fmt_jsonp(Body, CB) end)
+        end,
+    verify_callback(Req, S).
 
 iframe(Req, Headers, _Server, _SessionId) ->
     {ok, URL} = application:get_env(sockjs, sockjs_url),
@@ -160,20 +163,26 @@ eventsource(Req, Headers, _Server, SessionId) ->
     reply_loop(Req1, SessionId, true, fun fmt_eventsource/1).
 
 htmlfile(Req, Headers, _Server, SessionId) ->
+    S = fun (CB) ->
+                Req1 = headers(Req, Headers, "text/html; charset=UTF-8"),
+                IFrame0 = fmt(?IFRAME_HTMLFILE, [CB]),
+                %% Safari needs at least 1024 bytes to parse the
+                %% website. Relevant:
+                %%   http://code.google.com/p/browsersec/wiki/Part2#Survey_of_content_sniffing_behaviors
+                Padding = list_to_binary(string:copies(" ", 1024 - size(IFrame0))),
+                IFrame = <<IFrame0/binary, Padding/binary, $\r, $\n, $\r, $\n>>,
+                chunk(Req1, IFrame),
+                reply_loop(Req1, SessionId, false, fun fmt_htmlfile/1)
+        end,
+    verify_callback(Req, S).
+
+verify_callback(Req, Success) ->
     {CB, Req1} = sockjs_http:callback(Req),
     case CB of
         undefined ->
             sockjs_http:reply(500, [], "\"callback\" parameter required", Req);
         _ ->
-            Req2 = headers(Req1, Headers, "text/html; charset=UTF-8"),
-            IFrame0 = fmt(?IFRAME_HTMLFILE, [CB]),
-            %% Safari needs at least 1024 bytes to parse the
-            %% website. Relevant:
-            %%   http://code.google.com/p/browsersec/wiki/Part2#Survey_of_content_sniffing_behaviors
-            Padding = list_to_binary(string:copies(" ", 1024 - size(IFrame0))),
-            IFrame = <<IFrame0/binary, Padding/binary, $\r, $\n, $\r, $\n>>,
-            chunk(Req2, IFrame),
-            reply_loop(Req2, SessionId, false, fun fmt_htmlfile/1)
+            Success(CB)
     end.
 
 chunking_test(Req, Headers, _Server, _SessionId) ->

@@ -48,8 +48,12 @@ callback({cowboy, Req}) ->
     {CB, Req1} = cowboy_http_req:qs_val(<<"c">>, Req),
     {CB, {cowboy, Req1}};
 callback({misultin, Req} = R) ->
-    CB = list_to_binary(proplists:get_value("c", Req:parse_qs())),
-    {CB, R}.
+    case proplists:get_value("c", Req:parse_qs()) of
+        undefined ->
+            {undefined, R};
+        CB ->
+            {list_to_binary(CB), R}
+    end.
 
 header(K, {cowboy, Req})->
     {H, _} = cowboy_http_req:header(K, Req),
