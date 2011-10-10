@@ -44,10 +44,17 @@ callback({misultin, Req} = R) ->
 
 header(K, {cowboy, Req})->
     {H, _} = cowboy_http_req:header(K, Req),
-    case H of
+    V = case H of
+            undefined ->
+                {H1, _} = cowboy_http_req:header(atom_to_binary(K, utf8), Req),
+                H1;
+            _ -> H
+        end,
+    case V of
         undefined -> undefined;
-        _         -> binary_to_list(H)
+        _         -> binary_to_list(V)
     end;
+
 header(K, {misultin, Req}) ->
     misultin_utility:header_get_value(K, Req:get(headers)).
 
