@@ -23,10 +23,19 @@ body({cowboy, Req})       -> {ok, Body, Req1} = cowboy_http_req:body(Req),
                              {Body, {cowboy, Req1}};
 body({misultin, Req} = R) -> {Req:get(body), R}.
 
-body_qs({cowboy, Req})       -> {BodyQS, Req1} = cowboy_http_req:body_qs(Req),
-                                {proplists:get_value(<<"d">>, BodyQS),
-                                 {cowboy, Req1}};
-body_qs({misultin, Req} = R) -> {proplists:get_value("d", Req:parse_post()), R}.
+body_qs(R) ->
+    case header('Content-Type', R) of
+        "text/plain" ->
+            body(R);
+        _ ->
+            %% Assume application/x-www-form-urlencoded by default
+            body_qs2(R)
+    end.
+
+body_qs2({cowboy, Req})       -> {BodyQS, Req1} = cowboy_http_req:body_qs(Req),
+                                 {proplists:get_value(<<"d">>, BodyQS),
+                                  {cowboy, Req1}};
+body_qs2({misultin, Req} = R) -> {proplists:get_value("d", Req:parse_post()), R}.
 
 %% TODO fix Req mutation for these two
 jsessionid({cowboy, Req}) ->
