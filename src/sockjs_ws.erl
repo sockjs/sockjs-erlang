@@ -8,10 +8,10 @@
 %% Where should framing happen? (Do we care?)
 
 send(Data, {?MODULE, Ws, cowboy}) ->
-    Ws ! {send, ["m", sockjs_util:encode(Data)]};
+    Ws ! {send, ["a[", sockjs_util:encode(Data), "]"]};
 
 send(Data, {?MODULE, Ws, misultin}) ->
-    Ws:send(["m", sockjs_util:encode(Data)]).
+    Ws:send(["a[", sockjs_util:encode(Data), "]"]).
 
 close(Code, Reason, {?MODULE, Ws, cowboy}) ->
     Ws ! {send, ["c", sockjs_util:encode([Code, list_to_binary(Reason)])]},
