@@ -139,9 +139,9 @@ xhr_streaming(Req, Headers, _Server, SessionId) ->
     reply_loop(Req1, SessionId, false, fun fmt_xhr/1).
 
 jsonp(Req, Headers, _Server, SessionId) ->
-    S = fun (CB) ->
-                Req1 = headers(Req, Headers),
-                reply_loop(Req1, SessionId, true,
+    S = fun (Req1, CB) ->
+                Req2 = headers(Req1, Headers),
+                reply_loop(Req2, SessionId, true,
                            fun (Body) -> fmt_jsonp(Body, CB) end)
         end,
     verify_callback(Req, S).
@@ -163,16 +163,16 @@ eventsource(Req, Headers, _Server, SessionId) ->
     reply_loop(Req1, SessionId, false, fun fmt_eventsource/1).
 
 htmlfile(Req, Headers, _Server, SessionId) ->
-    S = fun (CB) ->
-                Req1 = headers(Req, Headers, "text/html; charset=UTF-8"),
+    S = fun (Req1, CB) ->
+                Req2 = headers(Req1, Headers, "text/html; charset=UTF-8"),
                 IFrame0 = fmt(?IFRAME_HTMLFILE, [CB]),
                 %% Safari needs at least 1024 bytes to parse the
                 %% website. Relevant:
                 %%   http://code.google.com/p/browsersec/wiki/Part2#Survey_of_content_sniffing_behaviors
                 Padding = list_to_binary(string:copies(" ", 1024 - size(IFrame0))),
                 IFrame = <<IFrame0/binary, Padding/binary, $\r, $\n, $\r, $\n>>,
-                chunk(Req1, IFrame),
-                reply_loop(Req1, SessionId, false, fun fmt_htmlfile/1)
+                chunk(Req2, IFrame),
+                reply_loop(Req2, SessionId, false, fun fmt_htmlfile/1)
         end,
     verify_callback(Req, S).
 
@@ -180,9 +180,9 @@ verify_callback(Req, Success) ->
     {CB, Req1} = sockjs_http:callback(Req),
     case CB of
         undefined ->
-            sockjs_http:reply(500, [], "\"callback\" parameter required", Req);
+            sockjs_http:reply(500, [], "\"callback\" parameter required", Req1);
         _ ->
-            Success(CB)
+            Success(Req1, CB)
     end.
 
 chunking_test(Req, Headers, _Server, _SessionId) ->
@@ -220,14 +220,14 @@ options(Req, Headers, _Server, _SessionId) ->
 %% from ours.
 xhr_send(Req, Headers, _Server, SessionId, Receive) ->
     {Body, Req1} = sockjs_http:body(Req),
-    Success = fun () -> sockjs_http:reply(204,
+    Success = fun (Req2) -> sockjs_http:reply(204,
                                           [{"content-type", "text/plain"}] ++
-                                              Headers, "", Req1) end,
+                                              Headers, "", Req2) end,
     verify_body(Req1, Body, SessionId, Receive, Success).
 
 jsonp_send(Req, Headers, _Server, SessionId, Receive) ->
     {Body, Req1} = sockjs_http:body_qs(Req),
-    Success = fun () -> sockjs_http:reply(200, Headers, "ok", Req) end,
+    Success = fun (Req2) -> sockjs_http:reply(200, Headers, "ok", Req2) end,
     verify_body(Req1, Body, SessionId, Receive, Success).
 
 verify_body(Req, Body, SessionId, Receive, Success) ->
@@ -239,7 +239,7 @@ verify_body(Req, Body, SessionId, Receive, Success) ->
             case sockjs_util:decode(Body) of
                  {ok, Decoded} ->
                      receive_body(Decoded, SessionId, Receive),
-                     Success();
+                     Success(Req);
                  {error, _} ->
                      sockjs_http:reply(500, [],
                                        "Broken JSON encoding.", Req)
