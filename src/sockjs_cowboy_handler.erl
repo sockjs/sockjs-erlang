@@ -12,9 +12,15 @@
 
 init({tcp, http}, Req, {Handler, _WsHandler}) ->
     {Upgrade, Req1} = cowboy_http_req:header('Upgrade', Req),
-    case Upgrade of
-        <<"WebSocket">> -> {upgrade, protocol, cowboy_http_websocket};
-        _               -> {ok, Req1, #state{handler = Handler}}
+    Upgrade1 = case Upgrade of
+                   B when is_binary(B) -> string:to_lower(binary_to_list(B));
+                   X -> X
+               end,
+    case Upgrade1 of
+        "websocket"  ->
+            {upgrade, protocol, cowboy_http_websocket};
+        _ ->
+            {ok, Req1, #state{handler = Handler}}
     end.
 
 handle(Req, State = #state{handler = Handler}) ->
