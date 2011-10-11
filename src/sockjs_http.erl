@@ -124,7 +124,7 @@ misultin_ws_loop(Ws, Receive) ->
 misultin_ws_loop0(Ws, Receive, Self) ->
     receive
         {browser, Data} ->
-            Decoded = sockjs_util:decode(Data),
+            {ok, Decoded} = sockjs_util:decode(Data),
             Receive(Self, {recv, Decoded}),
             misultin_ws_loop0(Ws, Receive, Self);
         closed ->

@@ -35,7 +35,7 @@ websocket_init(_TransportName, Req, {_Handler, WsHandler}) ->
 
 websocket_handle({text, Text}, Req,
                  State = #ws_state{self = Self, recv = Receive}) ->
-    Decoded = sockjs_util:decode(Text),
+    {ok, Decoded} = sockjs_util:decode(Text),
     Receive(Self, {recv, Decoded}),
     {ok, Req, State};
 
