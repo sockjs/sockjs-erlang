@@ -261,7 +261,7 @@ h_sid(Req, Headers, _Server, _SessionId) ->
     %% session information is usually added by the load balancer.
     case sockjs_http:jsessionid(Req) of
         undefined -> [{"Set-Cookie", "JSESSIONID=dummy; path=/"}];
-        _         -> []
+        Jsid      -> [{"Set-Cookie", "JSESSIONID=" ++ Jsid ++ "; path=/"}]
     end ++ Headers.
 
 h_no_cache(_Req, Headers, _Server, _SessionId) ->

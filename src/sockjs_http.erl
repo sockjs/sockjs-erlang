@@ -40,9 +40,14 @@ body_qs2({misultin, Req} = R) -> {proplists:get_value("d", Req:parse_post()), R}
 %% TODO fix Req mutation for these two
 jsessionid({cowboy, Req}) ->
     {C, _} = cowboy_http_req:cookie(<<"JSESSIONID">>, Req),
-    C;
+    case C of
+        _ when is_binary(C) ->
+            binary_to_list(C);
+        undefined ->
+            undefined
+    end;
 jsessionid({misultin, Req}) ->
-    Req:get_cookie_value('JSESSIONID', Req:get_cookies()).
+    Req:get_cookie_value("JSESSIONID", Req:get_cookies()).
 
 callback({cowboy, Req}) ->
     {CB, Req1} = cowboy_http_req:qs_val(<<"c">>, Req),
