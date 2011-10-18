@@ -230,20 +230,18 @@ jsonp_send(Req, Headers, _Server, SessionId, Receive) ->
     Success = fun (Req2) -> sockjs_http:reply(200, Headers, "ok", Req2) end,
     verify_body(Req1, Body, SessionId, Receive, Success).
 
+verify_body(Req, Body, SessionId, Receive, Success)
+  when Body =:= undefined orelse Body =:= [] orelse Body =:= <<>> ->
+    sockjs_http:reply(500, [], "Payload expected.", Req);
+
 verify_body(Req, Body, SessionId, Receive, Success) ->
-    case Body of
-        E when E =:= undefined orelse E =:= [] orelse E =:= <<>> ->
+    case sockjs_util:decode(Body) of
+        {ok, Decoded} ->
+            receive_body(Decoded, SessionId, Receive),
+            Success(Req);
+        {error, _} ->
             sockjs_http:reply(500, [],
-                              "Payload expected.", Req);
-        _ ->
-            case sockjs_util:decode(Body) of
-                 {ok, Decoded} ->
-                     receive_body(Decoded, SessionId, Receive),
-                     Success(Req);
-                 {error, _} ->
-                     sockjs_http:reply(500, [],
-                                       "Broken JSON encoding.", Req)
-             end
+                              "Broken JSON encoding.", Req)
     end.
 %% --------------------------------------------------------------------------
 
