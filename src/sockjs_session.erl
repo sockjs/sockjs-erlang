@@ -55,13 +55,10 @@ pop_from_queue(Q) ->
 
 pop_from_queue(TypeAcc, Acc, Q) ->
     case queue:peek(Q) of
-        empty              -> {Acc, Q};
-        {value, {Type, _}} -> if TypeAcc =:= any orelse TypeAcc =:= Type ->
-                                      {{value, Val}, Q2} = queue:out(Q),
-                                      pop_from_queue(Type, [Val | Acc], Q2);
-                                 true ->
-                                      {Acc, Q}
-                              end
+        {value, {Type, _}} when TypeAcc =:= any orelse TypeAcc =:= Type ->
+            {{value, Val}, Q2} = queue:out(Q),
+            pop_from_queue(Type, [Val | Acc], Q2);
+        _ -> {Acc, Q}
     end.
 
 spid(SessionId) ->
