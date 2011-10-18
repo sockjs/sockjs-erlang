@@ -44,9 +44,13 @@ websocket_handle({text, <<"">>}, Req, State) ->
 
 websocket_handle({text, Text}, Req,
                  State = #ws_state{self = Self, recv = Receive}) ->
-    {ok, Decoded} = sockjs_util:decode(Text),
-    Receive(Self, {recv, Decoded}),
-    {ok, Req, State};
+    case sockjs_util:decode(Text) of
+        {ok, Decoded} ->
+            Receive(Self, {recv, Decoded}),
+            {ok, Req, State};
+        {error, _} ->
+            {shutdown, Req, State}
+    end;
 
 websocket_handle(Data, Req, State) ->
     io:format("Handle ~p~n", [Data]),
