@@ -347,13 +347,11 @@ fmt_htmlfile(Body) ->
 
 fmt(Fmt, Args) -> iolist_to_binary(io_lib:format(Fmt, Args)).
 
-url_escape("", _Chars) ->
-    "";
-url_escape([Char | Rest], Chars) ->
-    case lists:member(Char, Chars) of
-        true  -> [hex(Char) | url_escape(Rest, Chars)];
-        false -> [Char | url_escape(Rest, Chars)]
-    end.
+url_escape(Str, Chars) ->
+    [case lists:member(Char, Chars) of
+         true  -> hex(Char);
+         false -> Char
+     end || Char <- Str].
 
 hex(C) ->
     <<High0:4, Low0:4>> = <<C>>,
