@@ -126,9 +126,13 @@ misultin_ws_loop0(Ws, Receive, Self) ->
         {browser, ""} ->
             misultin_ws_loop0(Ws, Receive, Self);
         {browser, Data} ->
-            {ok, Decoded} = sockjs_util:decode(Data),
-            Receive(Self, {recv, Decoded}),
-            misultin_ws_loop0(Ws, Receive, Self);
+            case sockjs_util:decode(Data) of
+                {ok, Decoded} ->
+                    Receive(Self, {recv, Decoded}),
+                    misultin_ws_loop0(Ws, Receive, Self);
+                {error, _} ->
+                    closed
+            end;
         closed ->
             Receive(Self, closed),
             closed;
