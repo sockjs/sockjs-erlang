@@ -1,16 +1,21 @@
-JSON=mochijson2
+JSON=eep0018
 HTTP=cowboy
 
-all: deps
+.PHONY: all deps test test-prep clean distclean
+
+all: deps deps/$(HTTP)
+	make -C deps/$(HTTP)
 	rebar compile
 
 deps:
+	-rebar get-deps
+# git:// URLs don't work behind some proxies. Grr.
+	sed -i 's|git:|https:|g' deps/cowboy/rebar.config
 	rebar get-deps
 
 test: test-prep all
-	erl -pa ebin -pa deps/misultin/ebin -pa deps/mochiweb/ebin \
-		-pa deps/cowboy/ebin -pa deps/quoted/ebin \
-		-pa deps/eep0018/ebin -sockjs json_impl $(JSON) \
+	erl -pa ebin deps/$(HTTP)/ebin deps/$(HTTP)/deps/*/ebin \
+		-pa deps/json/ebin -sockjs json_impl $(JSON) \
 		-sockjs http_impl $(HTTP) \
 		-run sockjs_test
 
@@ -27,6 +32,11 @@ deps/sockjs-client:
 	-mkdir -p deps
 	cd deps && \
 		git clone https://github.com/sockjs/sockjs-client.git
+
+deps/misultin:
+	-mkdir -p deps
+	cd deps && \
+		git clone -b dev https://github.com/ostinelli/misultin.git
 
 clean::
 	rebar clean
