@@ -189,7 +189,8 @@ chunking_test(Req, Headers, _Server, _SessionId) ->
     Req1 = headers(Req, Headers),
     %% IE requires 2KB prelude
     Prelude = list_to_binary(string:copies(" ", 2048)),
-    chunking_loop(Req1, [{0,    <<Prelude/binary, "h">>},
+    chunking_loop(Req1, [{0,    <<"h">>},
+                         {0,    <<Prelude/binary, "h">>},
                          {5,    <<"h">>},
                          {25,   <<"h">>},
                          {125,  <<"h">>},
