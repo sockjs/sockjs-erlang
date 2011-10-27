@@ -59,7 +59,8 @@ handle_req(Req, Path, Dispatcher) ->
                         sockjs_filters:Action(Req1, Headers, Server, SessionId,
                                               Receive)
                     catch throw:no_session ->
-                            sockjs_http:reply(404, [], "", Req1)
+                            H = h_sid(Req1, [], Server, SessionId),
+                            sockjs_http:reply(404, H, "", Req1)
                     end
                 end;
         nomatch ->
