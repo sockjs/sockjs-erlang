@@ -1,21 +1,21 @@
-JSON=eep0018
+JSON=jiffy
 HTTP=cowboy
 
 .PHONY: all deps test test-prep clean distclean
 
 all: deps deps/$(HTTP)
 	make -C deps/$(HTTP)
-	rebar compile
+	./rebar compile
 
 deps:
-	-rebar get-deps
+	-./rebar get-deps
 # git:// URLs don't work behind some proxies. Grr.
 	sed -i='' 's|git:|https:|g' deps/cowboy/rebar.config
-	rebar get-deps
+	./rebar get-deps
 
 test: test-prep all
-	erl -pa ebin deps/$(HTTP)/ebin deps/$(HTTP)/deps/*/ebin \
-		-pa deps/json/ebin -sockjs json_impl $(JSON) \
+	erl -pa ebin deps/*/ebin \
+		-sockjs json_impl $(JSON) \
 		-sockjs http_impl $(HTTP) \
 		-run sockjs_test
 
@@ -39,7 +39,7 @@ deps/misultin:
 		git clone -b dev https://github.com/ostinelli/misultin.git
 
 clean::
-	rebar clean
+	./rebar clean
 	rm -rf priv/www
 
 distclean::

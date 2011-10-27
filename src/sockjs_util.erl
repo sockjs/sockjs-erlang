@@ -1,7 +1,7 @@
 -module(sockjs_util).
 
 -export([encode/1, encode/2, decode/1, encode_list/1]).
--export([mochijson2/2, eep0018/2]).
+-export([mochijson2/2, eep0018/2, jiffy/2]).
 
 encode_list([{close, {Code, Reason}}]) ->
     encode(<<"c">>, [Code, list_to_binary(Reason)]);
@@ -32,3 +32,8 @@ mochijson2(JSON,  decode) ->
 
 eep0018(Thing, encode) -> {ok, JSON}  = json:encode(Thing), JSON;
 eep0018(JSON,  decode) -> json:decode(JSON).
+
+jiffy(Thing, encode) ->
+    iolist_to_binary(jiffy:encode(Thing));
+jiffy(JSON,  decode) ->
+    {ok, jiffy:decode(JSON)}.
