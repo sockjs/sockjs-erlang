@@ -10,7 +10,7 @@ all: deps deps/$(HTTP)
 deps:
 	-rebar get-deps
 # git:// URLs don't work behind some proxies. Grr.
-	sed -i 's|git:|https:|g' deps/cowboy/rebar.config
+	sed -i 's|git:|https:|g' deps/cowboy/rebar.config > /dev/null 2>&1 || sed -i '' 's|git:|https:|g' deps/cowboy/rebar.config
 	rebar get-deps
 
 test: test-prep all
