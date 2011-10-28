@@ -36,4 +36,8 @@ eep0018(JSON,  decode) -> json:decode(JSON).
 jiffy(Thing, encode) ->
     iolist_to_binary(jiffy:encode(Thing));
 jiffy(JSON,  decode) ->
-    {ok, jiffy:decode(JSON)}.
+    try jiffy:decode(JSON) of
+        V -> {ok, V}
+    catch
+        E -> E
+    end.
