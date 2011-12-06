@@ -20,4 +20,3 @@ close(Code, Reason, {?MODULE, Ws, cowboy}) ->
 close(Code, Reason, {?MODULE, Ws, misultin}) ->
     Ws:send(["c", sockjs_util:encode([Code, list_to_binary(Reason)])]),
     exit(normal). %% TODO ?
-
