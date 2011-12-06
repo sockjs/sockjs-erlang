@@ -23,11 +23,10 @@ init_state(Fallback, DispatchTable) ->
                 end
         end,
     WsLoop =
-        fun(Ws0) ->
-                Ws = {misultin, Ws0},
-                {"/" ++ Path, Ws1} = sockjs_http:path(Ws),
+        fun(Ws) ->
+                {"/" ++ Path, _Req1} = sockjs_http:path({misultin, Ws}),
                 {Receive, _, _, _} = sockjs_filters:dispatch('GET', Path,
                                                              DispatchTable),
-                sockjs_http:misultin_ws_loop(Ws1, Receive)
+                sockjs_http:misultin_ws_loop(Ws, Receive)
         end,
     {Loop, WsLoop}.

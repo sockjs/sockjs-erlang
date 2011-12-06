@@ -116,8 +116,8 @@ enbinary(L) -> [{list_to_binary(K), list_to_binary(V)} || {K, V} <- L].
 -define(WS_MODULE, sockjs_ws).
 
 misultin_ws_loop(Ws, Receive) ->
-    Ws:send(["o"]),
     Self = {?WS_MODULE, Ws, misultin},
+    ?WS_MODULE:send(["o"], Self),
     Receive(Self, init),
     misultin_ws_loop0(Ws, Receive, Self).
 
