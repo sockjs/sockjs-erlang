@@ -66,7 +66,7 @@ terminate(_Req, _State) ->
 websocket_init(_TransportName, Req, {_Handler, WsHandler}) ->
     {Receive, {cowboy, Req1}} = WsHandler({cowboy, Req}),
     Self = {?WS_MODULE, self(), cowboy},
-    self() ! {send, ["o"]},
+    ?WS_MODULE:open_frame(Self),
     Receive(Self, init),
     {ok, Req1, #ws_state{self = Self, recv = Receive}}.
 
