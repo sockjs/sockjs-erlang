@@ -27,7 +27,7 @@ start() ->
                                   cowboy_tcp_transport, [{port,     Port}],
                                   cowboy_http_protocol, [{dispatch, Routes}])
     end,
-    io:format("~nRunning on port ~p~n~n", [Port]),
+    error_logger:info_msg("~nRunning on port ~p~n~n", [Port]),
     test_broadcast(start),
     receive
         _ -> ok

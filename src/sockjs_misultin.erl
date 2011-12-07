@@ -13,15 +13,10 @@ init_state(Fallback, DispatchTable) ->
         fun(Req0) ->
                 Req = {misultin, Req0},
                 {"/" ++ Path, Req1} = sockjs_http:path(Req),
-                try
-                    case sockjs_filters:handle_req(
-                           Req1, Path, DispatchTable) of
-                        nomatch -> Fallback(Req);
-                        Req2    -> Req2
-                    end
-                catch A:B ->
-                        io:format("~s ~p ~p~n", [A, B, erlang:get_stacktrace()]),
-                        Req:respond(500, [], "500")
+                case sockjs_filters:handle_req(
+                       Req1, Path, DispatchTable) of
+                    nomatch -> Fallback(Req);
+                    Req2    -> Req2
                 end
         end,
     WsLoop =
