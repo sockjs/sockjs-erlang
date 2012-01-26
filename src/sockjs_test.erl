@@ -7,7 +7,7 @@ start() ->
          {close,     fun test_close/2},
          {amplify,   fun test_amplify/2},
          {broadcast, fun test_broadcast/2}],
-    Port = 8080,
+    Port = 8081,
     application:start(sockjs),
     {ok, HttpImpl} = application:get_env(sockjs, http_impl),
     case HttpImpl of

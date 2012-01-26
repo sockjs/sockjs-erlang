@@ -10,25 +10,11 @@ all: deps deps/$(HTTP)
 deps:
 	./rebar get-deps
 
-test: test-prep all
+test: all
 	erl -pa ebin deps/*/ebin \
 		-sockjs json_impl $(JSON) \
 		-sockjs http_impl $(HTTP) \
 		-run sockjs_test
-
-test-prep: deps/sockjs-client priv/www
-	cd deps/sockjs-client && npm install
-	coffee -v > /dev/null
-	make -C deps/sockjs-client tests/html/lib/sockjs.js tests/html/lib/tests.js
-
-priv/www:
-	-mkdir -p priv
-	ln -s ../deps/sockjs-client/tests/html priv/www
-
-deps/sockjs-client:
-	-mkdir -p deps
-	cd deps && \
-		git clone https://github.com/sockjs/sockjs-client.git
 
 deps/misultin:
 	-mkdir -p deps
