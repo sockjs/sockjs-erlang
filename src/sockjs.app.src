@@ -11,5 +11,6 @@
   {env, [{sockjs_url,       "/lib/sockjs.js"},
          {heartbeat_ms,     25000},
          {session_close_ms, 5000},
+         {http_impl, cowboy},
          {json_impl,        jiffy}]}
  ]}.

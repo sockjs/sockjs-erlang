@@ -41,5 +41,5 @@ jiffy(JSON,  decode) when is_binary(JSON) ->
     catch
         E -> E
     end;
-jiffy(JSON, decode) ->
+jiffy(JSON, decode) when is_list(JSON) ->
     jiffy(iolist_to_binary(JSON), decode).

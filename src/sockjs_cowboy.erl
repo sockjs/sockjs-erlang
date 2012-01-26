@@ -1,7 +1,14 @@
--module(sockjs_cowboy_handler).
+%% Adapter for cowboy.
+%% TODO: How to.
+
+-module(sockjs_cowboy).
 -behaviour(cowboy_http_handler).
 -behaviour(cowboy_http_websocket_handler).
 
+%% Public API
+-export([init_state/2]).
+
+%% Callbacks
 -export([init/3, handle/2, terminate/2]).
 -export([websocket_init/3, websocket_handle/3,
          websocket_info/3, websocket_terminate/3]).
@@ -9,6 +16,32 @@
 -define(WS_MODULE, sockjs_ws).
 -record(state, {handler}).
 -record(ws_state, {self, recv}).
+
+%% Public
+
+init_state(Fallback, DispatchTable) ->
+    ReqHandler =
+        fun(Req) ->
+                {"/" ++ Path, Req1} = sockjs_http:path(Req),
+                case sockjs_filters:handle_req(
+                       Req1, Path, DispatchTable) of
+                    nomatch ->
+                        Fallback(Req);
+                    Req2 ->
+                        Req2
+                end
+        end,
+    WsHandler =
+        fun (Req) ->
+                {"/" ++ Path, Req1} = sockjs_http:path(Req),
+                {Receive, _, _, _} = sockjs_filters:dispatch('GET', Path,
+                                                             DispatchTable),
+                {Receive, Req1}
+        end,
+    {ReqHandler, WsHandler}.
+
+%% Callbacks
+%% --------------------------------------------------------------------------
 
 init({tcp, http}, Req, {Handler, _WsHandler}) ->
     {Upgrade, Req1} = cowboy_http_req:header('Upgrade', Req),
@@ -30,12 +63,10 @@ handle(Req, State = #state{handler = Handler}) ->
 terminate(_Req, _State) ->
     ok.
 
-%% --------------------------------------------------------------------------
-
 websocket_init(_TransportName, Req, {_Handler, WsHandler}) ->
     {Receive, {cowboy, Req1}} = WsHandler({cowboy, Req}),
     Self = {?WS_MODULE, self(), cowboy},
-    self() ! {send, ["o"]},
+    ?WS_MODULE:open_frame(Self),
     Receive(Self, init),
     {ok, Req1, #ws_state{self = Self, recv = Receive}}.
 
@@ -53,7 +84,7 @@ websocket_handle({text, Text}, Req,
     end;
 
 websocket_handle(Data, Req, State) ->
-    io:format("Handle ~p~n", [Data]),
+%%  io:format("Handle ~p~n", [Data]),
     {ok, Req, State}.
 
 websocket_info({send, Msg}, Req, State) ->

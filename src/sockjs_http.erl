@@ -3,8 +3,6 @@
 -export([path/1, method/1, body/1, body_qs/1, jsessionid/1, callback/1,
          header/2, reply/4, chunk_start/3, chunk/2, chunk_end/1]).
 
--export([misultin_ws_loop/2]).
-
 %% --------------------------------------------------------------------------
 
 path({cowboy, Req})       -> {Path, Req1} = cowboy_http_req:raw_path(Req),
@@ -112,31 +110,3 @@ chunk_end({misultin, Req} = R) -> Req:chunk(done),
 enbinary(L) -> [{list_to_binary(K), list_to_binary(V)} || {K, V} <- L].
 
 %% --------------------------------------------------------------------------
-
--define(WS_MODULE, sockjs_ws).
-
-misultin_ws_loop(Ws, Receive) ->
-    Ws:send(["o"]),
-    Self = {?WS_MODULE, Ws, misultin},
-    Receive(Self, init),
-    misultin_ws_loop0(Ws, Receive, Self).
-
-misultin_ws_loop0(Ws, Receive, Self) ->
-    receive
-        {browser, ""} ->
-            misultin_ws_loop0(Ws, Receive, Self);
-        {browser, Data} ->
-            case sockjs_util:decode(Data) of
-                {ok, Decoded} ->
-                    Receive(Self, {recv, Decoded}),
-                    misultin_ws_loop0(Ws, Receive, Self);
-                {error, _} ->
-                    closed
-            end;
-        closed ->
-            Receive(Self, closed),
-            closed;
-        Msg ->
-            Receive(Self, {info, Msg}),
-            misultin_ws_loop0(Ws, Receive, Self)
-    end.

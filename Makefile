@@ -8,9 +8,6 @@ all: deps deps/$(HTTP)
 	./rebar compile
 
 deps:
-	-./rebar get-deps
-# git:// URLs don't work behind some proxies. Grr.
-	sed -i='' 's|git:|https:|g' deps/cowboy/rebar.config
 	./rebar get-deps
 
 test: test-prep all
@@ -37,6 +34,11 @@ deps/misultin:
 	-mkdir -p deps
 	cd deps && \
 		git clone -b dev https://github.com/ostinelli/misultin.git
+
+deps/cowboy:
+	-mkdir -p deps
+	cd deps && \
+		git clone -b master https://github.com/extend/cowboy.git
 
 clean::
 	./rebar clean
