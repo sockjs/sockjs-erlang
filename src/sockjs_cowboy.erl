@@ -25,10 +25,8 @@ init_state(Fallback, DispatchTable) ->
                 {"/" ++ Path, Req1} = sockjs_http:path(Req),
                 case sockjs_filters:handle_req(
                        Req1, Path, DispatchTable) of
-                    nomatch ->
-                        Fallback(Req);
-                    Req2 ->
-                        Req2
+                    nomatch -> Fallback(Req);
+                    Req2 -> Req2
                 end
         end,
     WsHandler =
