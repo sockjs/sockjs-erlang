@@ -37,7 +37,7 @@
 %%          </li>
 %%      </ul>
 
--module(mochijson2).
+-module(mochijson2_fork).
 -author('bob@mochimedia.com').
 -export([encoder/1, encode/1]).
 -export([decoder/1, decode/1, decode/2]).
@@ -140,7 +140,7 @@ json_encode(null, _State) ->
 json_encode(I, _State) when is_integer(I) ->
     integer_to_list(I);
 json_encode(F, _State) when is_float(F) ->
-    mochinum:digits(F);
+    mochinum_fork:digits(F);
 json_encode(S, State) when is_binary(S); is_atom(S) ->
     json_encode_string(S, State);
 json_encode([{K, _}|_] = Props, State) when (K =/= struct andalso
