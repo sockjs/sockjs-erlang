@@ -5,6 +5,7 @@
 -export([start_link/0, start_child/2]).
 -export([init/1]).
 
+-spec start_link() -> ignore | {'ok', pid()} | {'error', any()}.
 start_link() ->
      supervisor:start_link({local, ?MODULE}, ?MODULE, []).
 

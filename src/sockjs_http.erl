@@ -1,10 +1,12 @@
 -module(sockjs_http).
 
--export([path/1, method/1, body/1, body_qs/1, jsessionid/1, callback/1,
-         header/2, reply/4, chunk_start/3, chunk/2, chunk_end/1]).
+-export([path/1, method/1, header/2, reply/4, jsessionid/1]).
+
+-include("sockjs_internal.hrl").
 
 %% --------------------------------------------------------------------------
 
+-spec path(req()) -> {string(), req()}.
 path({cowboy, Req})       -> {Path, Req1} = cowboy_http_req:raw_path(Req),
                              {binary_to_list(Path), {cowboy, Req1}};
 path({misultin, Req} = R) -> case element(1, Req) of
@@ -13,100 +15,53 @@ path({misultin, Req} = R) -> case element(1, Req) of
                                                 {Path, R}
                              end.
 
+-spec method(req()) -> {atom(), req()}.
 method({cowboy, Req})       -> {Method, Req1} = cowboy_http_req:method(Req),
                                {Method, {cowboy, Req1}};
 method({misultin, Req} = R) -> {Req:get(method), R}.
 
-body({cowboy, Req})       -> {ok, Body, Req1} = cowboy_http_req:body(Req),
-                             {Body, {cowboy, Req1}};
-body({misultin, Req} = R) -> {Req:get(body), R}.
 
-body_qs(R) ->
-    case header('Content-Type', R) of
-        "text/plain" ->
-            body(R);
-        _ ->
-            %% Assume application/x-www-form-urlencoded by default
-            body_qs2(R)
-    end.
-
-body_qs2({cowboy, Req})       -> {BodyQS, Req1} = cowboy_http_req:body_qs(Req),
-                                 {proplists:get_value(<<"d">>, BodyQS),
-                                  {cowboy, Req1}};
-body_qs2({misultin, Req} = R) -> {proplists:get_value("d", Req:parse_post()), R}.
-
-%% TODO fix Req mutation for these two
-jsessionid({cowboy, Req}) ->
-    {C, _} = cowboy_http_req:cookie(<<"JSESSIONID">>, Req),
-    case C of
-        _ when is_binary(C) ->
-            binary_to_list(C);
-        undefined ->
-            undefined
-    end;
-jsessionid({misultin, Req}) ->
-    Req:get_cookie_value("JSESSIONID", Req:get_cookies()).
-
-callback({cowboy, Req}) ->
-    {CB, Req1} = cowboy_http_req:qs_val(<<"c">>, Req),
-    {CB, {cowboy, Req1}};
-callback({misultin, Req} = R) ->
-    case proplists:get_value("c", Req:parse_qs()) of
-        undefined ->
-            {undefined, R};
-        CB ->
-            {list_to_binary(CB), R}
-    end.
-
+-spec header(atom(), req()) -> {nonempty_string() | undefined, req()}.
 header(K, {cowboy, Req})->
-    {H, _} = cowboy_http_req:header(K, Req),
-    V = case H of
-            undefined ->
-                {H1, _} = cowboy_http_req:header(atom_to_binary(K, utf8), Req),
-                H1;
-            _ -> H
-        end,
+    {H, Req2} = cowboy_http_req:header(K, Req),
+    {V, Req3} = case H of
+                    undefined ->
+                        cowboy_http_req:header(atom_to_binary(K, utf8), Req2);
+                    _ -> {H, Req2}
+                end,
     case V of
-        undefined -> undefined;
-        _         -> binary_to_list(V)
+        undefined -> {undefined, {cowboy, Req3}};
+        _         -> {binary_to_list(V), {cowboy, Req3}}
     end;
 
-header(K, {misultin, Req}) ->
+header(K, {misultin, Req} = R) ->
     case misultin_utility:header_get_value(K, Req:get(headers)) of
-        false -> undefined;
-        V -> V
+        false -> {undefined, R};
+        V     -> {V, R}
     end.
 
-reply(Code, Headers, Body, {cowboy, Req}) when is_list(Body) ->
-    reply(Code, Headers, list_to_binary(Body), {cowboy, Req});
+-spec reply(non_neg_integer(), headers(), iodata(), req()) -> req().
 reply(Code, Headers, Body, {cowboy, Req}) ->
-    {ok, Req1} = cowboy_http_req:reply(Code, enbinary(Headers), Body, Req),
+    Body1 = iolist_to_binary(Body),
+    {ok, Req1} = cowboy_http_req:reply(Code, enbinary(Headers), Body1, Req),
     {cowboy, Req1};
 reply(Code, Headers, Body, {misultin, Req} = R) ->
     Req:respond(Code, Headers, Body),
     R.
 
-chunk_start(Code, Headers, {cowboy, Req}) ->
-    {ok, Req1} = cowboy_http_req:chunked_reply(Code, enbinary(Headers), Req),
-    {cowboy, Req1};
-chunk_start(_Code, Headers, {misultin, Req} = R) ->
-    Req:chunk(head, Headers),
-    R.
-
-chunk(Chunk, {cowboy, Req})   -> case cowboy_http_req:chunk(Chunk, Req) of
-                                     ok -> ok;
-                                     {error, _} -> error
-                                 end;
-chunk(Chunk, {misultin, Req}) -> case Req:chunk(Chunk) of
-                                     {stream_data, _} -> ok
-                                     %% Misultin just kills the
-                                     %% process on connection error.
-                                 end.
-
-chunk_end({cowboy, _Req} = R)  -> R;
-chunk_end({misultin, Req} = R) -> Req:chunk(done),
-                                  R.
-
 enbinary(L) -> [{list_to_binary(K), list_to_binary(V)} || {K, V} <- L].
 
-%% --------------------------------------------------------------------------
+
+-spec jsessionid(req()) -> {nonempty_string() | undefined, req()}.
+jsessionid({cowboy, Req}) ->
+    {C, Req2} = cowboy_http_req:cookie(<<"JSESSIONID">>, Req),
+    case C of
+        _ when is_binary(C) ->
+            {binary_to_list(C), {cowboy, Req2}};
+        undefined ->
+            {undefined, {cowboy, Req2}}
+    end;
+jsessionid({misultin, Req} = R) ->
+    C = Req:get_cookie_value("JSESSIONID", Req:get_cookies()),
+    {C, R}.
+
