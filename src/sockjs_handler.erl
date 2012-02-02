@@ -64,7 +64,7 @@ strip_prefix(LongPath, Prefix) ->
 -type(dispatch_result() ::
         nomatch |
         {match, {send | recv | none , atom(),
-                 nonempty_string(), nonempty_string(), list(atom())}} |
+                 server(), session(), list(atom())}} |
         {bad_method, list(atom())}).
 
 -spec dispatch_req(state(), req()) -> {dispatch_result(), req()}.

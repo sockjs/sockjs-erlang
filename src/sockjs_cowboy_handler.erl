@@ -15,11 +15,11 @@
 
 %% --------------------------------------------------------------------------
 
-init_state(Prefix, ServiceCallback, Options) ->
+init_state(Prefix, Callback, Options) ->
     Url = proplists:get_value("url", Options,
                               "http://cdn.sockjs.org/sockjs-0.2.js"),
     #state{prefix = binary_to_list(Prefix),
-           service_callback = ServiceCallback,
+           callback = Callback,
            url = Url,
            websocket = proplists:get_value(websocket, Options, true),
            cookie_needed = proplists:get_value(cookie_needed, Options, false)

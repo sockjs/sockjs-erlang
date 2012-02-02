@@ -1,6 +1,6 @@
 
 -record(state, {prefix :: nonempty_string(),
-                service_callback,
+                callback :: callback(),
                 url :: nonempty_string(),
                 cookie_needed :: boolean(),
                 websocket :: boolean()
@@ -10,3 +10,7 @@
 
 -type(req() :: {cowboy, any()} | {misultin, any()}).
 -type(headers() :: list({nonempty_string(), nonempty_string()})).
+-type(server() :: nonempty_string()).
+-type(session() :: nonempty_string()).
+-type(user_session() :: nonempty_string()).
+-type(callback() :: fun((user_session(), init|closed|{recv, binary()}) -> ok)).
