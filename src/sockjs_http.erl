@@ -40,18 +40,6 @@ header(K, {misultin, Req} = R) ->
         V     -> {V, R}
     end.
 
--spec reply(non_neg_integer(), headers(), iodata(), req()) -> req().
-reply(Code, Headers, Body, {cowboy, Req}) ->
-    Body1 = iolist_to_binary(Body),
-    {ok, Req1} = cowboy_http_req:reply(Code, enbinary(Headers), Body1, Req),
-    {cowboy, Req1};
-reply(Code, Headers, Body, {misultin, Req} = R) ->
-    Req:respond(Code, Headers, Body),
-    R.
-
-enbinary(L) -> [{list_to_binary(K), list_to_binary(V)} || {K, V} <- L].
-
-
 -spec jsessionid(req()) -> {nonempty_string() | undefined, req()}.
 jsessionid({cowboy, Req}) ->
     {C, Req2} = cowboy_http_req:cookie(<<"JSESSIONID">>, Req),
@@ -64,4 +52,19 @@ jsessionid({cowboy, Req}) ->
 jsessionid({misultin, Req} = R) ->
     C = Req:get_cookie_value("JSESSIONID", Req:get_cookies()),
     {C, R}.
+
+%% --------------------------------------------------------------------------
+
+-spec reply(non_neg_integer(), headers(), iodata(), req()) -> req().
+reply(Code, Headers, Body, {cowboy, Req}) ->
+    Body1 = iolist_to_binary(Body),
+    {ok, Req1} = cowboy_http_req:reply(Code, enbinary(Headers), Body1, Req),
+    {cowboy, Req1};
+reply(Code, Headers, Body, {misultin, Req} = R) ->
+    Req:respond(Code, Headers, Body),
+    R.
+
+
+enbinary(L) -> [{list_to_binary(K), list_to_binary(V)} || {K, V} <- L].
+
 
