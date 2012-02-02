@@ -14,24 +14,32 @@
                   session_timeout, closed = false, close_msg}).
 -define(ETS, sockjs_table).
 
+-include("sockjs_internal.hrl").
+
+%% --------------------------------------------------------------------------
+
+-spec init() -> ok.
 init() ->
-    ets:new(?ETS, [public, named_table]).
+    ets:new(?ETS, [public, named_table]),
+    ok.
 
-start_link(SessionId, Receive) ->
-    gen_server:start_link(?MODULE, {SessionId, Receive}, []).
+-spec start_link(session(), callback()) -> ok.
+start_link(SessionId, Callback) ->
+    gen_server:start_link(?MODULE, {SessionId, Callback}, []).
 
+-spec maybe_create(session(), callback()) -> ok.
 maybe_create(dummy, _) ->
     ok;
-
-maybe_create(SessionId, Receive) ->
-    case ets:lookup(?ETS, SessionId) of
+maybe_create(Session, Callback) ->
+    case ets:lookup(?ETS, Session) of
         []          -> {ok, SPid} = sockjs_session_sup:start_child(
-                                      SessionId, Receive),
-                       enqueue({open, nil}, SessionId),
-                       Receive({?MODULE, SessionId}, init),
+                                      Session, Callback),
+                       enqueue({open}, Session),
+                       Callback({?MODULE, Session}, init),
                        SPid;
         [{_, SPid}] -> SPid
-    end.
+    end,
+    ok.
 
 send(Data, {?MODULE, SessionId}) ->
     enqueue({data, Data}, SessionId).
@@ -97,7 +105,7 @@ init({SessionId, Receive}) ->
 %% we are asked - for streaming transports we only want to send it once.
 handle_call({reply, Pid, true}, _From, State = #session{closed    = true,
                                                         close_msg = Msg}) ->
-    reply(sockjs_util:encode_list(Msg), Pid, State);
+    reply(sockjs_util:encode_frame(Msg), Pid, State);
 
 handle_call({reply, Pid, _Once}, _From, State = #session{response_pid   = RPid,
                                                          outbound_queue = Q}) ->
@@ -109,7 +117,7 @@ handle_call({reply, Pid, _Once}, _From, State = #session{response_pid   = RPid,
             {reply, session_in_use, State};
         {{Popped, Rest}, _} ->
             State1 = maybe_close(Popped, State),
-            reply(sockjs_util:encode_list(Popped), Pid,
+            reply(sockjs_util:encode_frame(Popped), Pid,
                   State1#session{outbound_queue = Rest})
     end;
 
