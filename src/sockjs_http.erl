@@ -74,10 +74,10 @@ chunk_start(_Code, Headers, {misultin, Req} = R) ->
     R.
 
 -spec chunk(iodata(), req()) -> {ok | error, req()}.
-chunk(Chunk, {cowboy, Req}) ->
+chunk(Chunk, {cowboy, Req} = R) ->
     case cowboy_http_req:chunk(Chunk, Req) of
-        ok         -> {ok, Req};
-        {error, _} -> {error, Req}
+        ok         -> {ok, R};
+        {error, _} -> {error, R}
     end;
 chunk(Chunk, {misultin, Req} = R) ->
     case Req:chunk(Chunk) of
