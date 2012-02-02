@@ -64,14 +64,14 @@
 -define(IS_WHITESPACE(C),
         (C =:= $\s orelse C =:= $\t orelse C =:= $\r orelse C =:= $\n)).
 
-%% @type json_string() = atom | binary()
-%% @type json_number() = integer() | float()
-%% @type json_array() = [json_term()]
-%% @type json_object() = {struct, [{json_string(), json_term()}]}
-%% @type json_eep18_object() = {[{json_string(), json_term()}]}
-%% @type json_iolist() = {json, iolist()}
-%% @type json_term() = json_string() | json_number() | json_array() |
-%%                     json_object() | json_eep18_object() | json_iolist()
+-type(json_string() :: atom | binary()).
+-type(json_number() :: integer() | float()).
+-type(json_array() :: [json_term()]).
+-type(json_object() :: {struct, [{json_string(), json_term()}]}).
+-type(json_eep18_object() :: {[{json_string(), json_term()}]}).
+-type(json_iolist() :: {json, iolist()}).
+-type(json_term() :: json_string() | json_number() | json_array() |
+                    json_object() | json_eep18_object() | json_iolist()).
 
 -record(encoder, {handler=null,
                   utf8=false}).
@@ -82,26 +82,29 @@
                   column=1,
                   state=null}).
 
-%% @spec encoder([encoder_option()]) -> function()
+-spec encoder([encoder_option()]) -> function().
 %% @doc Create an encoder/1 with the given options.
-%% @type encoder_option() = handler_option() | utf8_option()
-%% @type utf8_option() = boolean(). Emit unicode as utf8 (default - false)
+-type(encoder_option() :: handler_option() | utf8_option()).
+-type(utf8_option() :: boolean()).
+%% Emit unicode as utf8 (default - false)
 encoder(Options) ->
     State = parse_encoder_options(Options, #encoder{}),
     fun (O) -> json_encode(O, State) end.
 
-%% @spec encode(json_term()) -> iolist()
+-spec encode(json_term()) -> iolist().
 %% @doc Encode the given as JSON to an iolist.
 encode(Any) ->
     json_encode(Any, #encoder{}).
 
-%% @spec decoder([decoder_option()]) -> function()
+-type(decoder_option() :: any()).
+-type(handler_option() :: any()).
+-spec decoder([decoder_option()]) -> function().
 %% @doc Create a decoder/1 with the given options.
 decoder(Options) ->
     State = parse_decoder_options(Options, #decoder{}),
     fun (O) -> json_decode(O, State) end.
 
-%% @spec decode(iolist(), [{format, proplist | eep18 | struct}]) -> json_term()
+-spec decode(iolist(), [{format, proplist | eep18 | struct}]) -> json_term().
 %% @doc Decode the given iolist to Erlang terms using the given object format
 %%      for decoding, where proplist returns JSON objects as [{binary(), json_term()}]
 %%      proplists, eep18 returns JSON objects as {[binary(), json_term()]}, and struct
@@ -109,7 +112,7 @@ decoder(Options) ->
 decode(S, Options) ->
     json_decode(S, parse_decoder_options(Options, #decoder{})).
 
-%% @spec decode(iolist()) -> json_term()
+-spec decode(iolist()) -> json_term().
 %% @doc Decode the given iolist to Erlang terms.
 decode(S) ->
     json_decode(S, #decoder{}).
