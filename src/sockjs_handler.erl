@@ -146,15 +146,16 @@ handle({bad_method, Methods}, _State, Req) ->
     H = [{"Allow", MethodsStr}],
     sockjs_http:reply(405, H, "", Req);
 
-handle({match, {Type, Action, _Server, Session, Filters}}, State, Req) ->
+handle({match, {Type, Action, _Server, Session, Filters}},
+       State = #state{callback = Callback}, Req) ->
     {Headers, Req2} = lists:foldl(
                         fun (Filter, {Headers0, Req1}) ->
                                 sockjs_filters:Filter(Req1, Headers0)
                         end, {[], Req}, Filters),
     case Type of
         send ->
-                sockjs_session:maybe_create(Session, xxx_null_todo),
-                sockjs_action:Action(Req2, Headers, Session);
+                sockjs_session:maybe_create(Session, Callback),
+                sockjs_action:Action(Req2, Headers, State, Session);
         recv ->
             try
                 sockjs_action:Action(Req2, Headers, Session, xxx_null_todo)

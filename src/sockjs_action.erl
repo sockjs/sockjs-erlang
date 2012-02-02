@@ -1,6 +1,9 @@
 -module(sockjs_action).
 
+% none
 -export([welcome_screen/3, options/3, iframe/3, info_test/3]).
+% send
+-export([xhr_polling/4]).
 
 -include("sockjs_internal.hrl").
 
@@ -72,3 +75,45 @@ info_test(Req, Headers, #state{websocket = Websocket,
     H = [{"Content-Type", "application/json; charset=UTF-8"}],
     sockjs_http:reply(200, H ++ Headers, D, Req).
 
+%% --------------------------------------------------------------------------
+
+-spec xhr_polling(req(), headers(), state(), session()) -> req().
+xhr_polling(Req, Headers, _State, Session) ->
+    Req1 = chunk_start(Req, Headers),
+    reply_loop(Req1, Session, true, fun fmt_xhr/1).
+
+%% --------------------------------------------------------------------------
+
+-define(STILL_OPEN, {2010, "Another connection still open"}).
+
+chunk_start(Req, Headers) ->
+    chunk_start(Req, Headers, "application/javascript; charset=UTF-8").
+chunk_start(Req, Headers, ContentType) ->
+    sockjs_http:chunk_start(200, [{"Content-Type", ContentType}] ++ Headers,
+                            Req).
+
+reply_loop(Req, SessionId, Once, Fmt) ->
+    {ok, Heartbeat} = application:get_env(sockjs, heartbeat_ms),
+    case sockjs_session:reply(SessionId, Once) of
+        wait           -> receive
+                              go -> reply_loop(Req, SessionId, Once, Fmt)
+                          after Heartbeat ->
+                                  {_, Req2} = chunk(Req, <<"h">>, Fmt),
+                                  reply_loop0(Req2, SessionId, Once, Fmt)
+                          end;
+        session_in_use -> Err = sockjs_util:encode_frame({close, ?STILL_OPEN}),
+                          chunk(Req, Err, Fmt),
+                          sockjs_http:chunk_end(Req);
+        Reply          -> {_, Req2} = chunk(Req, Reply, Fmt),
+                          reply_loop0(Req2, SessionId, Once, Fmt)
+    end.
+
+reply_loop0(Req, _SessionId, true, _Fmt) ->
+    sockjs_http:chunk_end(Req);
+reply_loop0(Req, SessionId, false, Fmt) ->
+    reply_loop(Req, SessionId, false, Fmt).
+
+chunk(Req, Body)      -> sockjs_http:chunk(Body, Req).
+chunk(Req, Body, Fmt) -> chunk(Req, Fmt(Body)).
+
+fmt_xhr(Body) -> <<Body/binary, $\n>>.

@@ -1,6 +1,7 @@
 -module(sockjs_http).
 
--export([path/1, method/1, header/2, reply/4, jsessionid/1]).
+-export([path/1, method/1, header/2, jsessionid/1]).
+-export([reply/4, chunk_start/3, chunk/2, chunk_end/1]).
 
 -include("sockjs_internal.hrl").
 
@@ -64,7 +65,31 @@ reply(Code, Headers, Body, {misultin, Req} = R) ->
     Req:respond(Code, Headers, Body),
     R.
 
+-spec chunk_start(non_neg_integer(), headers(), req()) -> req().
+chunk_start(Code, Headers, {cowboy, Req}) ->
+    {ok, Req1} = cowboy_http_req:chunked_reply(Code, enbinary(Headers), Req),
+    {cowboy, Req1};
+chunk_start(_Code, Headers, {misultin, Req} = R) ->
+    Req:chunk(head, Headers),
+    R.
+
+-spec chunk(iodata(), req()) -> {ok | error, req()}.
+chunk(Chunk, {cowboy, Req}) ->
+    case cowboy_http_req:chunk(Chunk, Req) of
+        ok         -> {ok, Req};
+        {error, _} -> {error, Req}
+    end;
+chunk(Chunk, {misultin, Req} = R) ->
+    case Req:chunk(Chunk) of
+        {stream_data, _} -> ok
+                            %% Misultin just kills the process on
+                            %% connection error.
+    end,
+    {ok, R}.
+
+-spec chunk_end(req()) -> req().
+chunk_end({cowboy, _Req} = R)  -> R;
+chunk_end({misultin, Req} = R) -> Req:chunk(done),
+                                  R.
 
 enbinary(L) -> [{list_to_binary(K), list_to_binary(V)} || {K, V} <- L].
-
-
