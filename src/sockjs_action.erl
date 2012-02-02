@@ -67,7 +67,7 @@ info_test(Req, Headers, #state{websocket = Websocket,
     I = [{websocket, Websocket},
          {cookie_needed, CookieNeeded},
          {origins, ['*:*']},
-         {entropy, random:uniform(erlang:trunc(math:pow(2,32)))-1}],
+         {entropy, sockjs_util:rand32()}],
     D = sockjs_json:encode(I),
     H = [{"Content-Type", "application/json; charset=UTF-8"}],
     sockjs_http:reply(200, H ++ Headers, D, Req).
