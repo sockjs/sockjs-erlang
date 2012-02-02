@@ -47,7 +47,7 @@ serve:
 			echo $$SRVPID > .pidfile.pid;	\
 			echo " [*] Pid: $$SRVPID";	\
 		); 					\
-		inotifywait -r -q -e modify src/*erl *erl; \
+		inotifywait -r -q -e modify src/*erl *erl src/*hrl; \
 		test -e .pidfile.pid && kill `cat .pidfile.pid`; \
 		rm -f .pidfile.pid;			\
 		sleep 0.1;				\
@@ -66,14 +66,14 @@ ERL_TOP=$(HOME)/.erlang-R15B/lib/erlang
 			tools public_key crypto ssl
 
 .dialyzer_sockjs.plt: # deps/*/ebin/*
-	dialyzer 				\
+	dialyzer				\
 		--no_native			\
-		--add_to_plt 			\
+		--add_to_plt			\
 		--plt .dialyzer_generic.plt	\
 		--output_plt .dialyzer_sockjs.plt -r deps/*/ebin
 
 dialyze: .dialyzer_sockjs.plt
-	dialyzer	 		\
+	@dialyzer	 		\
 	  --plt .dialyzer_sockjs.plt	\
 	  --no_native			\
 	  --fullpath			\
