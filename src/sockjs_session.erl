@@ -34,9 +34,9 @@ init() ->
     ets:new(?ETS, [public, named_table]),
     ok.
 
--spec start_link(session(), state()) -> {ok, pid()}.
-start_link(SessionId, State) ->
-    gen_server:start_link(?MODULE, {SessionId, State}, []).
+-spec start_link(session(), service()) -> {ok, pid()}.
+start_link(SessionId, Service) ->
+    gen_server:start_link(?MODULE, {SessionId, Service}, []).
 
 -spec maybe_create(session(), callback()) -> ok.
 maybe_create(SessionId, Callback) ->
@@ -114,9 +114,9 @@ emit(What, #session{callback = Callback,
 
 %% --------------------------------------------------------------------------
 
--spec init({session(), state()}) -> {ok, #session{}}.
-init({SessionId, #state{callback = Callback,
-                      disconnect_delay = DisconnectDelay}}) ->
+-spec init({session(), service()}) -> {ok, #session{}}.
+init({SessionId, #service{callback         = Callback,
+                          disconnect_delay = DisconnectDelay}}) ->
     ets:insert(?ETS, {SessionId, self()}),
     process_flag(trap_exit, true),
     {ok, #session{id = SessionId,

@@ -43,18 +43,18 @@
 
 %% --------------------------------------------------------------------------
 
--spec welcome_screen(req(), headers(), state()) -> req().
-welcome_screen(Req, Headers, _State) ->
+-spec welcome_screen(req(), headers(), service()) -> req().
+welcome_screen(Req, Headers, _Service) ->
     H = [{"Content-Type", "text/plain; charset=UTF-8"}],
     sockjs_http:reply(200, H ++ Headers,
           "Welcome to SockJS!\n", Req).
 
--spec options(req(), headers(), state()) -> req().
-options(Req, Headers, _State) ->
+-spec options(req(), headers(), service()) -> req().
+options(Req, Headers, _Service) ->
     sockjs_http:reply(204, Headers, "", Req).
 
--spec iframe(req(), headers(), state()) -> req().
-iframe(Req, Headers, #state{url = Url}) ->
+-spec iframe(req(), headers(), service()) -> req().
+iframe(Req, Headers, #service{url = Url}) ->
     IFrame = io_lib:format(?IFRAME, [Url]),
     MD5 = "\"" ++ binary_to_list(base64:encode(erlang:md5(IFrame))) ++ "\"",
     {H, Req2} = sockjs_http:header('If-None-Match', Req),
@@ -66,9 +66,9 @@ iframe(Req, Headers, #state{url = Url}) ->
     end.
 
 
--spec info_test(req(), headers(), state()) -> req().
-info_test(Req, Headers, #state{websocket = Websocket,
-                               cookie_needed = CookieNeeded}) ->
+-spec info_test(req(), headers(), service()) -> req().
+info_test(Req, Headers, #service{websocket = Websocket,
+                                 cookie_needed = CookieNeeded}) ->
     I = [{websocket, Websocket},
          {cookie_needed, CookieNeeded},
          {origins, ['*:*']},
@@ -79,15 +79,15 @@ info_test(Req, Headers, #state{websocket = Websocket,
 
 %% --------------------------------------------------------------------------
 
--spec xhr_polling(req(), headers(), state(), session()) -> req().
-xhr_polling(Req, Headers, _State, Session) ->
+-spec xhr_polling(req(), headers(), service(), session()) -> req().
+xhr_polling(Req, Headers, _Service, Session) ->
     Req1 = chunk_start(Req, Headers),
     reply_loop(Req1, Session, true, fun fmt_xhr/1).
 
 %% --------------------------------------------------------------------------
 
--spec xhr_send(req(), headers(), state(), session()) -> req().
-xhr_send(Req, Headers, _State, Session) ->
+-spec xhr_send(req(), headers(), service(), session()) -> req().
+xhr_send(Req, Headers, _Service, Session) ->
     {Body, Req1} = sockjs_http:body(Req),
     case handle_recv(Req1, Body, Session) of
         {error, Req2} ->

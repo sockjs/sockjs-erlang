@@ -7,12 +7,12 @@
 
 %% --------------------------------------------------------------------------
 
--spec is_valid_ws(state(), req()) -> {boolean(), req()}.
-is_valid_ws(State, Req) ->
-    {Dispatch, Req2} = dispatch_req(State, Req),
+-spec is_valid_ws(service(), req()) -> {boolean(), req()}.
+is_valid_ws(Service, Req) ->
+    {Dispatch, Req2} = dispatch_req(Service, Req),
     case Dispatch of
         {match, {_, websocket, _, _, _}} ->
-            case valid_ws_request(State, Req2) of
+            case valid_ws_request(Service, Req2) of
                 {false, Req3} ->
                     {false, Req3};
                 {true, Req3} ->
@@ -22,8 +22,8 @@ is_valid_ws(State, Req) ->
             {false, Req2}
     end.
 
--spec valid_ws_request(state(), req()) -> {boolean(), req()}.
-valid_ws_request(_State, Req) ->
+-spec valid_ws_request(service(), req()) -> {boolean(), req()}.
+valid_ws_request(_Service, Req) ->
     {R1, Req1} = valid_ws_upgrade(Req),
     {R2, Req2} = valid_ws_connection(Req1),
     {R1 and R2, Req2}.
@@ -67,8 +67,8 @@ strip_prefix(LongPath, Prefix) ->
                  server(), session(), list(atom())}} |
         {bad_method, list(atom())}).
 
--spec dispatch_req(state(), req()) -> {dispatch_result(), req()}.
-dispatch_req(#state{prefix = Prefix}, Req) ->
+-spec dispatch_req(service(), req()) -> {dispatch_result(), req()}.
+dispatch_req(#service{prefix = Prefix}, Req) ->
     {Method, Req1} = sockjs_http:method(Req),
     {LongPath, Req2} = sockjs_http:path(Req1),
     {ok, PathRemainder} = strip_prefix(LongPath, Prefix),
@@ -132,29 +132,29 @@ re(Path, S) ->
 
 %% --------------------------------------------------------------------------
 
--spec handle_req(state(), req()) -> req().
-handle_req(State, Req) ->
-    {Dispatch, Req1} = dispatch_req(State, Req),
-    handle(Dispatch, State, Req1).
+-spec handle_req(service(), req()) -> req().
+handle_req(Service, Req) ->
+    {Dispatch, Req1} = dispatch_req(Service, Req),
+    handle(Dispatch, Service, Req1).
 
-handle(nomatch, _State, Req) ->
+handle(nomatch, _Service, Req) ->
     sockjs_http:reply(404, [], "", Req);
 
-handle({bad_method, Methods}, _State, Req) ->
+handle({bad_method, Methods}, _Service, Req) ->
     MethodsStr = string:join([atom_to_list(M) || M <- Methods],
                              ", "),
     H = [{"Allow", MethodsStr}],
     sockjs_http:reply(405, H, "", Req);
 
-handle({match, {Type, Action, _Server, Session, Filters}}, State, Req) ->
+handle({match, {Type, Action, _Server, Session, Filters}}, Service, Req) ->
     {Headers, Req2} = lists:foldl(
                         fun (Filter, {Headers0, Req1}) ->
                                 sockjs_filters:Filter(Req1, Headers0)
                         end, {[], Req}, Filters),
     case Type of
         send ->
-                sockjs_session:maybe_create(Session, State),
-                sockjs_action:Action(Req2, Headers, State, Session);
+                sockjs_session:maybe_create(Session, Service),
+                sockjs_action:Action(Req2, Headers, Service, Session);
         recv ->
             try
                 sockjs_action:Action(Req2, Headers, Session, Session)
@@ -163,5 +163,5 @@ handle({match, {Type, Action, _Server, Session, Filters}}, State, Req) ->
                     sockjs_http:reply(404, H, "", Req3)
             end;
         none ->
-            sockjs_action:Action(Req2, Headers, State)
+            sockjs_action:Action(Req2, Headers, Service)
     end.

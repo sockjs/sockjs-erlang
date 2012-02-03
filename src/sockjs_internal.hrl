@@ -1,13 +1,13 @@
 
--record(state, {prefix :: nonempty_string(),
-                callback :: callback(),
-                url :: nonempty_string(),
-                cookie_needed :: boolean(),
-                websocket :: boolean(),
-                disconnect_delay :: non_neg_integer()
-                       }).
+-record(service, {prefix :: nonempty_string(),
+                  callback :: callback(),
+                  url :: nonempty_string(),
+                  cookie_needed :: boolean(),
+                  websocket :: boolean(),
+                  disconnect_delay :: non_neg_integer()
+                                      }).
 
--type(state() :: #state{}).
+-type(service() :: #service{}).
 
 -type(req() :: {cowboy, any()} | {misultin, any()}).
 -type(headers() :: list({nonempty_string(), nonempty_string()})).
