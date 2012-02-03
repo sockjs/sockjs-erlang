@@ -16,6 +16,7 @@
                   response_pid,
                   receiver,
                   session_timeout,
+                  disconnect_delay,
                   ready_state = connecting,
                   close_msg,
                   callback,
@@ -33,9 +34,9 @@ init() ->
     ets:new(?ETS, [public, named_table]),
     ok.
 
--spec start_link(session(), callback()) -> {ok, pid()}.
-start_link(SessionId, Callback) ->
-    gen_server:start_link(?MODULE, {SessionId, Callback}, []).
+-spec start_link(session(), state()) -> {ok, pid()}.
+start_link(Session, State) ->
+    gen_server:start_link(?MODULE, {Session, State}, []).
 
 -spec maybe_create(session(), callback()) -> ok.
 maybe_create(Session, Callback) ->
@@ -113,11 +114,14 @@ emit(What, #session{callback = Callback,
 
 %% --------------------------------------------------------------------------
 
-init({Session, Callback}) ->
+-spec init({session(), state()}) -> {ok, #session{}}.
+init({Session, #state{callback = Callback,
+                      disconnect_delay = DisconnectDelay}}) ->
     ets:insert(?ETS, {Session, self()}),
     process_flag(trap_exit, true),
     {ok, #session{id = Session,
                   callback = Callback,
+                  disconnect_delay = DisconnectDelay,
                   handle = {?MODULE, {sockjs_util:guid(), self()}}}}.
 
 
@@ -178,9 +182,9 @@ handle_cast(Cast, State) ->
 
 
 handle_info({'EXIT', Pid, _Reason},
-            State = #session{response_pid = Pid}) ->
-    {ok, CloseTime} = application:get_env(sockjs, session_close_ms),
-    Ref = erlang:send_after(CloseTime, self(), session_timeout),
+            State = #session{response_pid = Pid,
+                             disconnect_delay = DisconnectDelay}) ->
+    Ref = erlang:send_after(DisconnectDelay, self(), session_timeout),
     {noreply, State#session{response_pid    = undefined,
                             session_timeout = Ref}};
 

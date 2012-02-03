@@ -21,8 +21,12 @@ init_state(Prefix, Callback, Options) ->
     #state{prefix = binary_to_list(Prefix),
            callback = Callback,
            url = Url,
-           websocket = proplists:get_value(websocket, Options, true),
-           cookie_needed = proplists:get_value(cookie_needed, Options, false)
+           websocket =
+               proplists:get_value(websocket, Options, true),
+           cookie_needed =
+               proplists:get_value(cookie_needed, Options, false),
+           disconnect_delay =
+               proplists:get_value(disconnect_delay, Options, 5000)
           }.
 
 %% --------------------------------------------------------------------------
