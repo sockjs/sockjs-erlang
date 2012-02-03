@@ -35,21 +35,21 @@ init() ->
     ok.
 
 -spec start_link(session(), state()) -> {ok, pid()}.
-start_link(Session, State) ->
-    gen_server:start_link(?MODULE, {Session, State}, []).
+start_link(SessionId, State) ->
+    gen_server:start_link(?MODULE, {SessionId, State}, []).
 
 -spec maybe_create(session(), callback()) -> ok.
-maybe_create(Session, Callback) ->
-    case ets:lookup(?ETS, Session) of
+maybe_create(SessionId, Callback) ->
+    case ets:lookup(?ETS, SessionId) of
         []           -> {ok, _SPid} = sockjs_session_sup:start_child(
-                                        Session, Callback),
+                                        SessionId, Callback),
                         ok;
         [{_, _SPid}] -> ok
     end.
 
 -spec received(iodata(), session()) -> ok.
-received(Data, Session) ->
-    case gen_server:call(spid(Session), {received, Data}, infinity) of
+received(Data, SessionId) ->
+    case gen_server:call(spid(SessionId), {received, Data}, infinity) of
         ok -> ok;
         error -> %% TODO: should we respond 404 when session is closed?
             throw(no_session)
@@ -65,13 +65,13 @@ close(Code, Reason, {?MODULE, {_, SPid}}) ->
     gen_server:cast(SPid, {close, Code, Reason}),
     ok.
 
-reply(Session, Once) ->
-    gen_server:call(spid(Session), {reply, self(), Once}, infinity).
+reply(SessionId, Once) ->
+    gen_server:call(spid(SessionId), {reply, self(), Once}, infinity).
 
 %% --------------------------------------------------------------------------
 
-spid(Session) ->
-    case ets:lookup(?ETS, Session) of
+spid(SessionId) ->
+    case ets:lookup(?ETS, SessionId) of
         []          -> throw(no_session);
         [{_, SPid}] -> SPid
     end.
@@ -115,11 +115,11 @@ emit(What, #session{callback = Callback,
 %% --------------------------------------------------------------------------
 
 -spec init({session(), state()}) -> {ok, #session{}}.
-init({Session, #state{callback = Callback,
+init({SessionId, #state{callback = Callback,
                       disconnect_delay = DisconnectDelay}}) ->
-    ets:insert(?ETS, {Session, self()}),
+    ets:insert(?ETS, {SessionId, self()}),
     process_flag(trap_exit, true),
-    {ok, #session{id = Session,
+    {ok, #session{id = SessionId,
                   callback = Callback,
                   disconnect_delay = DisconnectDelay,
                   handle = {?MODULE, {sockjs_util:guid(), self()}}}}.
@@ -195,10 +195,10 @@ handle_info(Info, State) ->
     {stop, {odd_info, Info}, State}.
 
 
-terminate(Reason, State = #session{id       = Session}) ->
+terminate(Reason, State = #session{id       = SessionId}) ->
     io:format("exit reason ~p ~n", [Reason]),
     emit(closed, State),
-    ets:delete(?ETS, Session),
+    ets:delete(?ETS, SessionId),
     ok.
 
 code_change(_OldVsn, State, _Extra) ->
