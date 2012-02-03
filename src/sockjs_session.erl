@@ -3,16 +3,26 @@
 -behaviour(sockjs_sender).
 -behaviour(gen_server).
 
--export([init/0, start_link/2, maybe_create/2, sender/1, reply/2]).
-
+-export([init/0, start_link/2]).
+-export([maybe_create/2, reply/2, received/2]).
 -export([send/2, close/3]).
+
 
 -export([init/1, handle_call/3, handle_info/2, terminate/2, code_change/3,
          handle_cast/2]).
 
--record(session, {id, outbound_queue = queue:new(), response_pid, receiver,
-                  session_timeout, closed = false, close_msg}).
+-record(session, {id,
+                  outbound_queue = queue:new(),
+                  response_pid,
+                  receiver,
+                  session_timeout,
+                  ready_state = connecting,
+                  close_msg,
+                  callback,
+                  handle :: handle()}).
 -define(ETS, sockjs_table).
+
+-type(handle() :: {?MODULE, {binary(), pid()}}).
 
 -include("sockjs_internal.hrl").
 
@@ -23,64 +33,67 @@ init() ->
     ets:new(?ETS, [public, named_table]),
     ok.
 
--spec start_link(session(), callback()) -> ok.
+-spec start_link(session(), callback()) -> {ok, pid()}.
 start_link(SessionId, Callback) ->
     gen_server:start_link(?MODULE, {SessionId, Callback}, []).
 
 -spec maybe_create(session(), callback()) -> ok.
-maybe_create(dummy, _) ->
-    ok;
 maybe_create(Session, Callback) ->
     case ets:lookup(?ETS, Session) of
-        []          -> {ok, SPid} = sockjs_session_sup:start_child(
-                                      Session, Callback),
-                       enqueue({open}, Session),
-                       Callback({?MODULE, Session}, init),
-                       SPid;
-        [{_, SPid}] -> SPid
-    end,
+        []           -> {ok, _SPid} = sockjs_session_sup:start_child(
+                                        Session, Callback),
+                        ok;
+        [{_, _SPid}] -> ok
+    end.
+
+-spec received(iodata(), session()) -> ok.
+received(Data, Session) ->
+    case gen_server:call(spid(Session), {received, Data}, infinity) of
+        ok -> ok;
+        error -> %% TODO: should we respond 404 when session is closed?
+            throw(no_session)
+    end.
+
+-spec send(iodata(), handle()) -> ok.
+send(Data, {?MODULE, {_, SPid}}) ->
+    gen_server:cast(SPid, {send, Data}),
     ok.
 
-send(Data, {?MODULE, SessionId}) ->
-    enqueue({data, Data}, SessionId).
+-spec close(non_neg_integer(), string(), handle()) -> ok.
+close(Code, Reason, {?MODULE, {_, SPid}}) ->
+    gen_server:cast(SPid, {close, Code, Reason}),
+    ok.
 
-close(Code, Reason, {?MODULE, SessionId}) ->
-    enqueue({close, {Code, Reason}}, SessionId).
-
-enqueue(Cmd, SessionId) ->
-    gen_server:cast(spid(SessionId), {enqueue, Cmd}).
-
-sender(SessionId) -> {?MODULE, SessionId}.
-
-reply(SessionId, Once) ->
-    gen_server:call(spid(SessionId), {reply, self(), Once}, infinity).
+reply(Session, Once) ->
+    gen_server:call(spid(Session), {reply, self(), Once}, infinity).
 
 %% --------------------------------------------------------------------------
 
-pop_from_queue(Q) ->
-    {PoppedRev, Rest} = pop_from_queue(any, [], Q),
-    {lists:reverse(PoppedRev), Rest}.
-
-pop_from_queue(TypeAcc, Acc, Q) ->
-    case queue:peek(Q) of
-        {value, {Type, _}} when TypeAcc =:= any orelse TypeAcc =:= Type ->
-            {{value, Val}, Q2} = queue:out(Q),
-            pop_from_queue(Type, [Val | Acc], Q2);
-        _ -> {Acc, Q}
-    end.
-
-spid(SessionId) ->
-    case ets:lookup(?ETS, SessionId) of
+spid(Session) ->
+    case ets:lookup(?ETS, Session) of
         []          -> throw(no_session);
         [{_, SPid}] -> SPid
     end.
 
-maybe_close([{close, _}] = Msg, State = #session{closed = false}) ->
-    State#session{closed = true, close_msg = Msg};
-maybe_close([{close, _}],       _State) ->
-    exit(assertion_failed);
-maybe_close(_,                  State) ->
-    State.
+%% pop_type_from_queue(Q) ->
+%%     {PoppedRev, Rest} = pop_type_from_queue(any, [], Q),
+%%     {lists:reverse(PoppedRev), Rest}.
+
+%% pop_type_from_queue(TypeAcc, Acc, Q) ->
+%%     case queue:peek(Q) of
+%%         {value, {Type, _}} when TypeAcc =:= any orelse TypeAcc =:= Type ->
+%%             {{value, Val}, Q2} = queue:out(Q),
+%%             pop_type_from_queue(Type, [Val | Acc], Q2);
+%%         _ -> {Acc, Q}
+%%     end.
+
+
+%% maybe_close([{close, _}] = Msg, State = #session{closed = false}) ->
+%%     State#session{closed = true, close_msg = Msg};
+%% maybe_close([{close, _}],       _State) ->
+%%     exit(assertion_failed);
+%% maybe_close(_,                  State) ->
+%%     State.
 
 reply(Reply, Pid, State = #session{response_pid    = undefined,
                                    session_timeout = Ref}) ->
@@ -94,45 +107,75 @@ reply(Reply, Pid, State = #session{response_pid    = undefined,
 reply(Reply, Pid, State = #session{response_pid = Pid}) ->
     {reply, Reply, State}.
 
+emit(What, #session{callback = Callback,
+                    handle = Handle}) ->
+    Callback(Handle, What).
+
 %% --------------------------------------------------------------------------
 
-init({SessionId, Receive}) ->
-    ets:insert(?ETS, {SessionId, self()}),
+init({Session, Callback}) ->
+    ets:insert(?ETS, {Session, self()}),
     process_flag(trap_exit, true),
-    {ok, #session{id = SessionId, receiver = Receive}}.
+    {ok, #session{id = Session,
+                  callback = Callback,
+                  handle = {?MODULE, {sockjs_util:guid(), self()}}}}.
 
-%% For non-streaming transports we want to send a closed message every time
-%% we are asked - for streaming transports we only want to send it once.
-handle_call({reply, Pid, true}, _From, State = #session{closed    = true,
-                                                        close_msg = Msg}) ->
-    reply(sockjs_util:encode_frame(Msg), Pid, State);
 
-handle_call({reply, Pid, _Once}, _From, State = #session{response_pid   = RPid,
+handle_call({reply, Pid, _}, _From, State = #session{ready_state = connecting}) ->
+    emit(init, State),
+    reply(sockjs_util:encode_frame({open, nil}), Pid,
+          State#session{ready_state = open});
+
+handle_call({reply, Pid, _}, _From, State = #session{ready_state = closed,
+                                                     close_msg = CloseMsg}) ->
+    reply(sockjs_util:encode_frame({close, CloseMsg}), Pid, State);
+
+
+handle_call({reply, Pid, _Once}, _From, State = #session{ready_state = open,
+                                                         response_pid = RPid,
                                                          outbound_queue = Q}) ->
-    case {pop_from_queue(Q), RPid} of
-        {{[], _}, P} when P =:= undefined orelse P =:= Pid ->
+    {Messages, Q1} = {queue:to_list(Q), queue:new()},
+    case {Messages, RPid} of
+        {[], P} when P =:= undefined orelse P =:= Pid ->
             reply(wait, Pid, State);
-        {{[], _}, _} ->
+        {[], _} ->
             %% don't use reply(), this shouldn't touch the session lifetime
             {reply, session_in_use, State};
-        {{Popped, Rest}, _} ->
-            State1 = maybe_close(Popped, State),
-            reply(sockjs_util:encode_frame(Popped), Pid,
-                  State1#session{outbound_queue = Rest})
+        {_, _} ->
+            reply(sockjs_util:encode_frame({data, Messages}), Pid,
+                  State#session{outbound_queue = Q1})
     end;
+
+handle_call({received, Data}, _From, State = #session{ready_state = open}) ->
+    emit({recv, iolist_to_binary(Data)}, State),
+    {reply, ok, State};
+
+handle_call({received, _Data}, _From, State = #session{ready_state = _Any}) ->
+    {reply, error, State};
 
 handle_call(Request, _From, State) ->
     {stop, {odd_request, Request}, State}.
 
-handle_cast({enqueue, Cmd}, State = #session{outbound_queue = Q,
-                                             response_pid   = P}) ->
-    if is_pid(P) -> P ! go;
-       true      -> ok
+
+handle_cast({send, Data}, State = #session{outbound_queue = Q,
+                                           response_pid   = RPid}) ->
+    case RPid of
+        undefined -> ok;
+        _Else     -> RPid ! go
     end,
-    {noreply, State#session{outbound_queue = queue:in(Cmd, Q)}};
+    {noreply, State#session{outbound_queue = queue:in(Data, Q)}};
+
+handle_cast({close, Status, Reason},  State = #session{response_pid = RPid}) ->
+    case RPid of
+        undefined -> ok;
+        _Else     -> RPid ! go
+    end,
+    {noreply, State#session{ready_state = closed,
+                            close_msg = {Status, Reason}}};
 
 handle_cast(Cast, State) ->
     {stop, {odd_cast, Cast}, State}.
+
 
 handle_info({'EXIT', Pid, _Reason},
             State = #session{response_pid = Pid}) ->
@@ -147,10 +190,11 @@ handle_info(session_timeout, State = #session{response_pid = undefined}) ->
 handle_info(Info, State) ->
     {stop, {odd_info, Info}, State}.
 
-terminate(_Reason, #session{id       = SessionId,
-                            receiver = Receive}) ->
-    Receive({?MODULE, SessionId}, closed),
-    ets:delete(?ETS, SessionId),
+
+terminate(Reason, State = #session{id       = Session}) ->
+    io:format("exit reason ~p ~n", [Reason]),
+    emit(closed, State),
+    ets:delete(?ETS, Session),
     ok.
 
 code_change(_OldVsn, State, _Extra) ->

@@ -1,6 +1,6 @@
 -module(sockjs_http).
 
--export([path/1, method/1, header/2, jsessionid/1]).
+-export([path/1, method/1, body/1, header/2, jsessionid/1]).
 -export([reply/4, chunk_start/3, chunk/2, chunk_end/1]).
 
 -include("sockjs_internal.hrl").
@@ -21,6 +21,10 @@ method({cowboy, Req})       -> {Method, Req1} = cowboy_http_req:method(Req),
                                {Method, {cowboy, Req1}};
 method({misultin, Req} = R) -> {Req:get(method), R}.
 
+-spec body(req()) -> {binary(), req()}.
+body({cowboy, Req})       -> {ok, Body, Req1} = cowboy_http_req:body(Req),
+                             {Body, {cowboy, Req1}};
+body({misultin, Req} = R) -> {Req:get(body), R}.
 
 -spec header(atom(), req()) -> {nonempty_string() | undefined, req()}.
 header(K, {cowboy, Req})->

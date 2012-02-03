@@ -2,6 +2,8 @@
 
 % none
 -export([welcome_screen/3, options/3, iframe/3, info_test/3]).
+% recv
+-export([xhr_send/4]).
 % send
 -export([xhr_polling/4]).
 
@@ -84,6 +86,34 @@ xhr_polling(Req, Headers, _State, Session) ->
 
 %% --------------------------------------------------------------------------
 
+-spec xhr_send(req(), headers(), state(), session()) -> req().
+xhr_send(Req, Headers, _State, Session) ->
+    {Body, Req1} = sockjs_http:body(Req),
+    case handle_recv(Req1, Body, Session) of
+        {error, Req2} ->
+            Req2;
+        ok ->
+            H = [{"content-type", "text/plain; charset=UTF-8"}],
+            sockjs_http:reply(204, H ++ Headers, "", Req1)
+    end.
+
+handle_recv(Req, Body, Session) ->
+    case Body of
+        _Any when Body =:= <<>> ->
+            {error, sockjs_http:reply(500, [], "Payload expected.", Req)};
+        _Any ->
+            case sockjs_json:decode(Body) of
+                {ok, Decoded} ->
+                    sockjs_session:received(Decoded, Session),
+                    ok;
+                {error, _} ->
+                    {error, sockjs_http:reply(500, [],
+                                              "Broken JSON encoding.", Req)}
+            end
+    end.
+
+%% --------------------------------------------------------------------------
+
 -define(STILL_OPEN, {2010, "Another connection still open"}).
 
 chunk_start(Req, Headers) ->
@@ -102,8 +132,8 @@ reply_loop(Req, SessionId, Once, Fmt) ->
                                   reply_loop0(Req2, SessionId, Once, Fmt)
                           end;
         session_in_use -> Err = sockjs_util:encode_frame({close, ?STILL_OPEN}),
-                          chunk(Req, Err, Fmt),
-                          sockjs_http:chunk_end(Req);
+                          {ok, Req2} = chunk(Req, Err, Fmt),
+                          sockjs_http:chunk_end(Req2);
         Reply          -> {_, Req2} = chunk(Req, Reply, Fmt),
                           reply_loop0(Req2, SessionId, Once, Fmt)
     end.
@@ -116,4 +146,5 @@ reply_loop0(Req, SessionId, false, Fmt) ->
 chunk(Req, Body)      -> sockjs_http:chunk(Body, Req).
 chunk(Req, Body, Fmt) -> chunk(Req, Fmt(Body)).
 
-fmt_xhr(Body) -> <<Body/binary, $\n>>.
+-spec fmt_xhr(iodata()) -> iodata().
+fmt_xhr(Body) -> [Body, "\n"].

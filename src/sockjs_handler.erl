@@ -102,7 +102,7 @@ filters() ->
     %% websocket does not actually go via handle_req/3 but we need
     %% something in dispatch/2
     [{t("/websocket"),               [{'GET',     none, websocket,      []}]},
-     {t("/xhr_send"),                [{'POST',    recv, xhr_send,       [h_sid, xhr_cors, expect_xhr]},
+     {t("/xhr_send"),                [{'POST',    recv, xhr_send,       [h_sid, xhr_cors]},
                                       {'OPTIONS', none, options,        OptsFilters}]},
      {t("/xhr"),                     [{'POST',    send, xhr_polling,    [h_sid, xhr_cors]},
                                       {'OPTIONS', none, options,        OptsFilters}]},
@@ -158,7 +158,7 @@ handle({match, {Type, Action, _Server, Session, Filters}},
                 sockjs_action:Action(Req2, Headers, State, Session);
         recv ->
             try
-                sockjs_action:Action(Req2, Headers, Session, xxx_null_todo)
+                sockjs_action:Action(Req2, Headers, Session, Session)
             catch throw:no_session ->
                     {H, Req3} = sockjs_filters:h_sid(Req2, []),
                     sockjs_http:reply(404, H, "", Req3)
