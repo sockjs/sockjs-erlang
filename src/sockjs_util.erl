@@ -3,6 +3,7 @@
 -export([rand32/0]).
 -export([guid/0]).
 -export([encode_frame/1]).
+-export([url_escape/2]).
 
 %% --------------------------------------------------------------------------
 
@@ -47,3 +48,16 @@ encode_frame({data, L}) ->
     [<<"a">>,
      sockjs_json:encode([iolist_to_binary(D) || D <- L])].
 
+
+-spec url_escape(string(), string()) -> iolist().
+url_escape(Str, Chars) ->
+    [case lists:member(Char, Chars) of
+         true  -> hex(Char);
+         false -> Char
+     end || Char <- Str].
+
+hex(C) ->
+    <<High0:4, Low0:4>> = <<C>>,
+    High = integer_to_list(High0),
+    Low = integer_to_list(Low0),
+    "%" ++ High ++ Low.

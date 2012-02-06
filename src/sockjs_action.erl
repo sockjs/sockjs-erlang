@@ -3,7 +3,7 @@
 % none
 -export([welcome_screen/3, options/3, iframe/3, info_test/3]).
 % send
--export([xhr_polling/4, xhr_streaming/4]).
+-export([xhr_polling/4, xhr_streaming/4, eventsource/4]).
 % recv
 -export([xhr_send/4]).
 
@@ -94,6 +94,15 @@ xhr_streaming(Req, Headers, Service = #service{response_limit = ResponseLimit},
                  fun fmt_xhr/1),
     reply_loop(Req2, Session, ResponseLimit, fun fmt_xhr/1, Service).
 
+-spec eventsource(req(), headers(), service(), session()) -> req().
+eventsource(Req, Headers, Service = #service{response_limit = ResponseLimit},
+            SessionId) ->
+    Req1 = chunk_start(Req, Headers, "text/event-stream; charset=UTF-8"),
+    Req2 = chunk(Req1, <<$\r, $\n>>),
+    reply_loop(Req1, SessionId, ResponseLimit, fun fmt_eventsource/1, Service).
+
+
+
 %% --------------------------------------------------------------------------
 
 -spec xhr_send(req(), headers(), service(), session()) -> req().
@@ -164,5 +173,13 @@ chunk(Req, Body)      ->
     Req1.
 chunk(Req, Body, Fmt) -> chunk(Req, Fmt(Body)).
 
+
 -spec fmt_xhr(iodata()) -> iodata().
 fmt_xhr(Body) -> [Body, "\n"].
+
+-spec fmt_eventsource(iodata()) -> iodata().
+fmt_eventsource(Body) ->
+    Escaped = sockjs_util:url_escape(binary_to_list(Body),
+                                     "%\r\n\0"), %% $% must be first!
+    [<<"data: ">>, Escaped, <<"\r\n\r\n">>].
+
