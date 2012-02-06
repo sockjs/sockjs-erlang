@@ -99,7 +99,7 @@ eventsource(Req, Headers, Service = #service{response_limit = ResponseLimit},
             SessionId) ->
     Req1 = chunk_start(Req, Headers, "text/event-stream; charset=UTF-8"),
     Req2 = chunk(Req1, <<$\r, $\n>>),
-    reply_loop(Req1, SessionId, ResponseLimit, fun fmt_eventsource/1, Service).
+    reply_loop(Req2, SessionId, ResponseLimit, fun fmt_eventsource/1, Service).
 
 
 
