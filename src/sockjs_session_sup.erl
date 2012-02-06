@@ -10,10 +10,10 @@ start_link() ->
      supervisor:start_link({local, ?MODULE}, ?MODULE, []).
 
 init([]) ->
-    {ok, {{one_for_one, 10, 10}, []}}.
+    {ok, {{simple_one_for_one, 10, 10},
+          [{undefined, {sockjs_session, start_link, []},
+            transient, 5000, worker, [sockjs_session]}]}}.
 
-start_child(SessionId, Receive) ->
-    supervisor:start_child(
-      ?MODULE,
-      {SessionId, {sockjs_session, start_link, [SessionId, Receive]},
-       transient, 16#ffffffff, worker, [sockjs_session]}).
+start_child(SessionId, Service) ->
+   supervisor:start_child(
+     ?MODULE, [SessionId, Service]).
