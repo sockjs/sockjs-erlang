@@ -38,11 +38,11 @@ init() ->
 start_link(SessionId, Service) ->
     gen_server:start_link(?MODULE, {SessionId, Service}, []).
 
--spec maybe_create(session(), callback()) -> ok.
-maybe_create(SessionId, Callback) ->
+-spec maybe_create(session(), service()) -> ok.
+maybe_create(SessionId, Service) ->
     case ets:lookup(?ETS, SessionId) of
         []           -> {ok, _SPid} = sockjs_session_sup:start_child(
-                                        SessionId, Callback),
+                                        SessionId, Service),
                         ok;
         [{_, _SPid}] -> ok
     end.

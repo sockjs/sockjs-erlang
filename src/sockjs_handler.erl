@@ -153,7 +153,7 @@ handle({match, {Type, Action, _Server, Session, Filters}}, Service, Req) ->
                         end, {[], Req}, Filters),
     case Type of
         send ->
-                sockjs_session:maybe_create(Session, Service),
+                ok = sockjs_session:maybe_create(Session, Service),
                 sockjs_action:Action(Req2, Headers, Service, Session);
         recv ->
             try
