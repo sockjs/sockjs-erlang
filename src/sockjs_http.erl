@@ -2,7 +2,7 @@
 
 -export([path/1, method/1, body/1, header/2, jsessionid/1]).
 -export([reply/4, chunk_start/3, chunk/2, chunk_end/1]).
-
+-export([hook_tcp_close/1, unhook_tcp_close/1, abruptly_kill/1]).
 -include("sockjs_internal.hrl").
 
 %% --------------------------------------------------------------------------
@@ -81,7 +81,9 @@ chunk_start(_Code, Headers, {misultin, Req} = R) ->
 chunk(Chunk, {cowboy, Req} = R) ->
     case cowboy_http_req:chunk(Chunk, Req) of
         ok         -> {ok, R};
-        {error, _} -> {error, R}
+        {error, E} -> {error, R}
+                      %% with a bit of luck this shouldn't happen,
+                      %% if we catch socket closure at the right time
     end;
 chunk(Chunk, {misultin, Req} = R) ->
     case Req:chunk(Chunk) of
@@ -97,3 +99,27 @@ chunk_end({misultin, Req} = R) -> Req:chunk(done),
                                   R.
 
 enbinary(L) -> [{list_to_binary(K), list_to_binary(V)} || {K, V} <- L].
+
+
+hook_tcp_close(R = {cowboy, Req}) ->
+    {ok, T, S} = cowboy_http_req:transport(Req),
+    T:setopts(S,[{active,once}]),
+    R;
+hook_tcp_close(R = {misultin, _Req}) ->
+    R.
+
+unhook_tcp_close(R = {cowboy, Req}) ->
+    {ok, T, S} = cowboy_http_req:transport(Req),
+    T:setopts(S,[{active,false}]),
+    R;
+unhook_tcp_close(R = {misultin, _Req}) ->
+    R.
+
+abruptly_kill(R = {cowboy, Req}) ->
+    {ok, T, S} = cowboy_http_req:transport(Req),
+    T:shutdown(S, read_write),
+    R;
+abruptly_kill(R = {misultin, _Req}) ->
+    %% TODO?
+    R.
+

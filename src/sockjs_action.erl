@@ -143,21 +143,30 @@ chunk_start(Req, Headers, ContentType) ->
 
 reply_loop(Req, SessionId, ResponseLimit, Fmt,
            Service = #service{heartbeat_delay = Heartbeat}) ->
+    Req0 = sockjs_http:hook_tcp_close(Req),
     case sockjs_session:reply(SessionId) of
         wait           -> receive
-                              go -> reply_loop(Req, SessionId, ResponseLimit,
-                                               Fmt, Service)
+                              {tcp_closed, XR} ->
+                                  io:format("tcp_closed ~p~n", [XR]),
+                                  Req0;
+                              {tcp, S, Data} ->
+                                  io:format("GOT DATA ON socket, not expecitng that~n"),
+                                  sockjs_http:abruptly_kill(Req);
+                              go ->
+                                  Req1 = sockjs_http:unhook_tcp_close(Req0),
+                                  reply_loop(Req1, SessionId, ResponseLimit,
+                                             Fmt, Service)
                           after Heartbeat ->
-                                  Req2 = chunk(Req, <<"h">>, Fmt),
+                                  Req2 = chunk(Req0, <<"h">>, Fmt),
                                   reply_loop0(Req2, SessionId, ResponseLimit,
                                               Fmt, Service)
                           end;
         session_in_use -> Err = sockjs_util:encode_frame({close, ?STILL_OPEN}),
-                          Req2 = chunk(Req, Err, Fmt),
+                          Req2 = chunk(Req0, Err, Fmt),
                           sockjs_http:chunk_end(Req2);
         Reply          ->
             Reply2 = iolist_to_binary(Reply),
-            Req2 = chunk(Req, Reply2, Fmt),
+            Req2 = chunk(Req0, Reply2, Fmt),
             reply_loop0(Req2, SessionId,
                         ResponseLimit - byte_size(Reply2),
                         Fmt, Service)
