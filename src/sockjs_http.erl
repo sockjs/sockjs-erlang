@@ -1,6 +1,6 @@
 -module(sockjs_http).
 
--export([path/1, method/1, body/1, header/2, jsessionid/1]).
+-export([path/1, method/1, body/1, header/2, jsessionid/1, callback/1]).
 -export([reply/4, chunk_start/3, chunk/2, chunk_end/1]).
 -export([hook_tcp_close/1, unhook_tcp_close/1, abruptly_kill/1]).
 -include("sockjs_internal.hrl").
@@ -57,6 +57,21 @@ jsessionid({cowboy, Req}) ->
 jsessionid({misultin, Req} = R) ->
     C = Req:get_cookie_value("JSESSIONID", Req:get_cookies()),
     {C, R}.
+
+-spec callback(req()) -> {nonempty_string() | undefined, req()}.
+callback({cowboy, Req}) ->
+    {CB, Req1} = cowboy_http_req:qs_val(<<"c">>, Req),
+    case CB of
+        undefined -> {undefined, {cowboy, Req1}};
+        _         -> {binary_to_list(CB), {cowboy, Req1}}
+    end;
+callback({misultin, Req} = R) ->
+    case proplists:get_value("c", Req:parse_qs()) of
+        undefined ->
+            {undefined, R};
+        CB ->
+            {CB, R}
+    end.
 
 %% --------------------------------------------------------------------------
 

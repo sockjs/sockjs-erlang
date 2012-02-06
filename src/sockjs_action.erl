@@ -3,7 +3,7 @@
 % none
 -export([welcome_screen/3, options/3, iframe/3, info_test/3]).
 % send
--export([xhr_polling/4, xhr_streaming/4, eventsource/4]).
+-export([xhr_polling/4, xhr_streaming/4, eventsource/4, htmlfile/4]).
 % recv
 -export([xhr_send/4]).
 
@@ -102,6 +102,23 @@ eventsource(Req, Headers, Service = #service{response_limit = ResponseLimit},
     reply_loop(Req2, SessionId, ResponseLimit, fun fmt_eventsource/1, Service).
 
 
+-spec htmlfile(req(), headers(), service(), session()) -> req().
+htmlfile(Req, Headers, Service = #service{response_limit = ResponseLimit},
+         SessionId) ->
+    {CB, Req1} = sockjs_http:callback(Req),
+    case CB of
+        undefined ->
+            sockjs_http:reply(500, [], "\"callback\" parameter required", Req1);
+        _ ->
+            Req2 = chunk_start(Req1, Headers, "text/html; charset=UTF-8"),
+            IFrame = iolist_to_binary(io_lib:format(?IFRAME_HTMLFILE, [CB])),
+            %% Safari needs at least 1024 bytes to parse the
+            %% website. Relevant:
+            %%   http://code.google.com/p/browsersec/wiki/Part2#Survey_of_content_sniffing_behaviors
+            Padding = string:copies(" ", 1024 - size(IFrame)),
+            Req3 = chunk(Req2, [IFrame, Padding, <<"\r\n\r\n">>]),
+            reply_loop(Req3, SessionId, ResponseLimit, fun fmt_htmlfile/1, Service)
+    end.
 
 %% --------------------------------------------------------------------------
 
@@ -168,7 +185,7 @@ reply_loop(Req, SessionId, ResponseLimit, Fmt,
             Reply2 = iolist_to_binary(Reply),
             Req2 = chunk(Req0, Reply2, Fmt),
             reply_loop0(Req2, SessionId,
-                        ResponseLimit - byte_size(Reply2),
+                        ResponseLimit - size(Reply2),
                         Fmt, Service)
     end.
 
@@ -192,3 +209,7 @@ fmt_eventsource(Body) ->
                                      "%\r\n\0"), %% $% must be first!
     [<<"data: ">>, Escaped, <<"\r\n\r\n">>].
 
+-spec fmt_htmlfile(iodata()) -> iodata().
+fmt_htmlfile(Body) ->
+    Double = sockjs_json:encode(Body),
+    [<<"<script>\np(">>, Double, <<");\n</script>\r\n">>].
