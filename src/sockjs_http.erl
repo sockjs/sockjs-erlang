@@ -95,10 +95,10 @@ chunk_start(_Code, Headers, {misultin, Req} = R) ->
 -spec chunk(iodata(), req()) -> {ok | error, req()}.
 chunk(Chunk, {cowboy, Req} = R) ->
     case cowboy_http_req:chunk(Chunk, Req) of
-        ok         -> {ok, R};
-        {error, E} -> {error, R}
-                      %% with a bit of luck this shouldn't happen,
-                      %% if we catch socket closure at the right time
+        ok          -> {ok, R};
+        {error, _E} -> {error, R}
+                      %% This shouldn't happen too often, usually we
+                      %% should catch tco socket closure before.
     end;
 chunk(Chunk, {misultin, Req} = R) ->
     case Req:chunk(Chunk) of
@@ -116,6 +116,7 @@ chunk_end({misultin, Req} = R) -> Req:chunk(done),
 enbinary(L) -> [{list_to_binary(K), list_to_binary(V)} || {K, V} <- L].
 
 
+-spec hook_tcp_close(req()) -> req().
 hook_tcp_close(R = {cowboy, Req}) ->
     {ok, T, S} = cowboy_http_req:transport(Req),
     T:setopts(S,[{active,once}]),
@@ -123,6 +124,7 @@ hook_tcp_close(R = {cowboy, Req}) ->
 hook_tcp_close(R = {misultin, _Req}) ->
     R.
 
+-spec unhook_tcp_close(req()) -> req().
 unhook_tcp_close(R = {cowboy, Req}) ->
     {ok, T, S} = cowboy_http_req:transport(Req),
     T:setopts(S,[{active,false}]),
@@ -130,6 +132,7 @@ unhook_tcp_close(R = {cowboy, Req}) ->
 unhook_tcp_close(R = {misultin, _Req}) ->
     R.
 
+-spec abruptly_kill(req()) -> req().
 abruptly_kill(R = {cowboy, Req}) ->
     {ok, T, S} = cowboy_http_req:transport(Req),
     T:shutdown(S, read_write),

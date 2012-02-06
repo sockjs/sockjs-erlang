@@ -47,6 +47,7 @@ maybe_create(SessionId, Service) ->
         [{_, _SPid}] -> ok
     end.
 
+
 -spec received(iodata(), session()) -> ok.
 received(Data, SessionId) ->
     case gen_server:call(spid(SessionId), {received, Data}, infinity) of
@@ -131,7 +132,7 @@ handle_call({reply, Pid}, _From, State = #session{ready_state = connecting}) ->
           State#session{ready_state = open});
 
 handle_call({reply, Pid}, _From, State = #session{ready_state = closed,
-                                                     close_msg = CloseMsg}) ->
+                                                  close_msg = CloseMsg}) ->
     reply(sockjs_util:encode_frame({close, CloseMsg}), Pid, State);
 
 

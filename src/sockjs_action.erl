@@ -166,7 +166,7 @@ reply_loop(Req, SessionId, ResponseLimit, Fmt,
                               {tcp_closed, XR} ->
                                   io:format("tcp_closed ~p~n", [XR]),
                                   Req0;
-                              {tcp, S, Data} ->
+                              {tcp, _S, _Data} ->
                                   io:format("GOT DATA ON socket, not expecitng that~n"),
                                   sockjs_http:abruptly_kill(Req);
                               go ->
@@ -195,7 +195,7 @@ reply_loop0(Req, SessionId, ResponseLimit, Fmt, Service) ->
     reply_loop(Req, SessionId, ResponseLimit, Fmt, Service).
 
 chunk(Req, Body)      ->
-    {ok, Req1} = sockjs_http:chunk(Body, Req),
+    {_, Req1} = sockjs_http:chunk(Body, Req),
     Req1.
 chunk(Req, Body, Fmt) -> chunk(Req, Fmt(Body)).
 
