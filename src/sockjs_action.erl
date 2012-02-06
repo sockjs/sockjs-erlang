@@ -181,12 +181,14 @@ reply_loop(Req, SessionId, ResponseLimit, Fmt,
         session_in_use -> Err = sockjs_util:encode_frame({close, ?STILL_OPEN}),
                           Req2 = chunk(Req0, Err, Fmt),
                           sockjs_http:chunk_end(Req2);
-        Reply          ->
-            Reply2 = iolist_to_binary(Reply),
-            Req2 = chunk(Req0, Reply2, Fmt),
-            reply_loop0(Req2, SessionId,
-                        ResponseLimit - size(Reply2),
-                        Fmt, Service)
+        {ok, Frame}    -> Frame2 = iolist_to_binary(Frame),
+                          Req2 = chunk(Req0, Frame2, Fmt),
+                          reply_loop0(Req2, SessionId,
+                                      ResponseLimit - size(Frame2),
+                                      Fmt, Service);
+        {close, Frame} ->
+                          Req2 = chunk(Req0, Frame, Fmt),
+                          sockjs_http:chunk_end(Req2)
     end.
 
 reply_loop0(Req, _SessionId, ResponseLimit, _Fmt, _Service) when ResponseLimit =< 0 ->

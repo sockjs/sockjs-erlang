@@ -97,17 +97,33 @@ spid(SessionId) ->
 %% maybe_close(_,                  State) ->
 %%     State.
 
-reply(Reply, Pid, State = #session{response_pid    = undefined,
+mark_waiting(Pid, State = #session{response_pid    = undefined,
                                    session_timeout = Ref}) ->
     link(Pid),
     case Ref of
         undefined -> ok;
         _         -> erlang:cancel_timer(Ref)
     end,
-    reply(Reply, Pid, State#session{response_pid    = Pid,
-                                    session_timeout = undefined});
-reply(Reply, Pid, State = #session{response_pid = Pid}) ->
-    {reply, Reply, State}.
+    State#session{response_pid    = Pid,
+                  session_timeout = undefined}.
+
+unmark_waiting(State = #session{response_pid = RPid,
+                                session_timeout = undefined,
+                                disconnect_delay = DisconnectDelay}) ->
+    case RPid of
+        undefined -> ok;
+        _Else ->
+            unlink(RPid)
+    end,
+    Ref = erlang:send_after(DisconnectDelay, self(), session_timeout),
+    State#session{response_pid    = undefined,
+                  session_timeout = Ref};
+unmark_waiting(State = #session{response_pid = undefined,
+                                session_timeout = Ref,
+                                disconnect_delay = DisconnectDelay}) ->
+    erlang:cancel_timer(Ref),
+    Ref1 = erlang:send_after(DisconnectDelay, self(), session_timeout),
+    State#session{session_timeout = Ref1}.
 
 emit(What, #session{callback = Callback,
                     handle = Handle}) ->
@@ -128,27 +144,31 @@ init({SessionId, #service{callback         = Callback,
 
 handle_call({reply, Pid}, _From, State = #session{ready_state = connecting}) ->
     emit(init, State),
-    reply(sockjs_util:encode_frame({open, nil}), Pid,
-          State#session{ready_state = open});
+    State1 = unmark_waiting(State),
+    {reply, {ok, sockjs_util:encode_frame({open, nil})},
+     State1#session{ready_state = open}};
 
 handle_call({reply, Pid}, _From, State = #session{ready_state = closed,
                                                   close_msg = CloseMsg}) ->
-    reply(sockjs_util:encode_frame({close, CloseMsg}), Pid, State);
+    State1 = unmark_waiting(State),
+    {reply, {close, sockjs_util:encode_frame({close, CloseMsg})}, State1};
 
-
-handle_call({reply, Pid}, _From, State = #session{ready_state = open,
-                                                         response_pid = RPid,
-                                                         outbound_queue = Q}) ->
+handle_call({reply, Pid}, _From, State = #session{
+                                   ready_state = open,
+                                   response_pid = RPid,
+                                   outbound_queue = Q}) ->
     {Messages, Q1} = {queue:to_list(Q), queue:new()},
     case {Messages, RPid} of
         {[], P} when P =:= undefined orelse P =:= Pid ->
-            reply(wait, Pid, State);
+            State1 = mark_waiting(Pid, State),
+            {reply, wait, State1};
         {[], _} ->
             %% don't use reply(), this shouldn't touch the session lifetime
             {reply, session_in_use, State};
         {_, _} ->
-            reply(sockjs_util:encode_frame({data, Messages}), Pid,
-                  State#session{outbound_queue = Q1})
+            State1 = unmark_waiting(State),
+            {reply, {ok, sockjs_util:encode_frame({data, Messages})},
+             State1#session{outbound_queue = Q1}}
     end;
 
 handle_call({received, Data}, _From, State = #session{ready_state = open}) ->
@@ -183,11 +203,11 @@ handle_cast(Cast, State) ->
 
 
 handle_info({'EXIT', Pid, _Reason},
-            State = #session{response_pid = Pid,
-                             disconnect_delay = DisconnectDelay}) ->
-    Ref = erlang:send_after(DisconnectDelay, self(), session_timeout),
-    {noreply, State#session{response_pid    = undefined,
-                            session_timeout = Ref}};
+            State = #session{response_pid = Pid}) ->
+    %% It is illegal for a connection to go away when receiving, we
+    %% may lose some messages that are in transit. Kill current
+    %% session.
+    {stop, normal, State#session{response_pid = undefined}};
 
 handle_info(session_timeout, State = #session{response_pid = undefined}) ->
     {stop, normal, State};
@@ -196,10 +216,10 @@ handle_info(Info, State) ->
     {stop, {odd_info, Info}, State}.
 
 
-terminate(Reason, State = #session{id       = SessionId}) ->
+terminate(Reason, State = #session{id = SessionId}) ->
     io:format("exit reason ~p ~n", [Reason]),
-    emit(closed, State),
     ets:delete(?ETS, SessionId),
+    emit(closed, State),
     ok.
 
 code_change(_OldVsn, State, _Extra) ->
