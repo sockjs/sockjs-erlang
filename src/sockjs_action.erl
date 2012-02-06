@@ -90,8 +90,8 @@ xhr_streaming(Req, Headers, Service = #service{response_limit = ResponseLimit},
     Req1 = chunk_start(Req, Headers),
     %% IE requires 2KB prefix:
     %% http://blogs.msdn.com/b/ieinternals/archive/2010/04/06/comet-streaming-in-internet-explorer-with-xmlhttprequest-and-xdomainrequest.aspx
-    {_, Req2} = chunk(Req1, list_to_binary(string:copies("h", 2048)),
-                      fun fmt_xhr/1),
+    Req2 = chunk(Req1, list_to_binary(string:copies("h", 2048)),
+                 fun fmt_xhr/1),
     reply_loop(Req2, Session, ResponseLimit, fun fmt_xhr/1, Service).
 
 %% --------------------------------------------------------------------------
@@ -139,16 +139,16 @@ reply_loop(Req, SessionId, ResponseLimit, Fmt,
                               go -> reply_loop(Req, SessionId, ResponseLimit,
                                                Fmt, Service)
                           after Heartbeat ->
-                                  {_, Req2} = chunk(Req, <<"h">>, Fmt),
+                                  Req2 = chunk(Req, <<"h">>, Fmt),
                                   reply_loop0(Req2, SessionId, ResponseLimit,
                                               Fmt, Service)
                           end;
         session_in_use -> Err = sockjs_util:encode_frame({close, ?STILL_OPEN}),
-                          {ok, Req2} = chunk(Req, Err, Fmt),
+                          Req2 = chunk(Req, Err, Fmt),
                           sockjs_http:chunk_end(Req2);
         Reply          ->
             Reply2 = iolist_to_binary(Reply),
-            {_, Req2} = chunk(Req, Reply2, Fmt),
+            Req2 = chunk(Req, Reply2, Fmt),
             reply_loop0(Req2, SessionId,
                         ResponseLimit - byte_size(Reply2),
                         Fmt, Service)
@@ -159,7 +159,9 @@ reply_loop0(Req, _SessionId, ResponseLimit, _Fmt, _Service) when ResponseLimit =
 reply_loop0(Req, SessionId, ResponseLimit, Fmt, Service) ->
     reply_loop(Req, SessionId, ResponseLimit, Fmt, Service).
 
-chunk(Req, Body)      -> sockjs_http:chunk(Body, Req).
+chunk(Req, Body)      ->
+    {ok, Req1} = sockjs_http:chunk(Body, Req),
+    Req1.
 chunk(Req, Body, Fmt) -> chunk(Req, Fmt(Body)).
 
 -spec fmt_xhr(iodata()) -> iodata().
