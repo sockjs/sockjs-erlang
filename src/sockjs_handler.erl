@@ -157,7 +157,7 @@ handle({match, {Type, Action, _Server, Session, Filters}}, Service, Req) ->
                 sockjs_action:Action(Req2, Headers, Service, Session);
         recv ->
             try
-                sockjs_action:Action(Req2, Headers, Session, Session)
+                sockjs_action:Action(Req2, Headers, Service, Session)
             catch throw:no_session ->
                     {H, Req3} = sockjs_filters:h_sid(Req2, []),
                     sockjs_http:reply(404, H, "", Req3)

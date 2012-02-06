@@ -63,4 +63,3 @@ websocket_info(_Info, Req, Service) ->
 
 websocket_terminate(_Reason, _Req, _Service) ->
     ok.
-
