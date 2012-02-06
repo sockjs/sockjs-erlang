@@ -27,7 +27,11 @@ init_state(Prefix, Callback, Options) ->
              cookie_needed =
                  proplists:get_value(cookie_needed, Options, false),
              disconnect_delay =
-                 proplists:get_value(disconnect_delay, Options, 5000)
+                 proplists:get_value(disconnect_delay, Options, 5000),
+             heartbeat_delay =
+                 proplists:get_value(heartbeat_delay, Options, 25000),
+             response_limit =
+                 proplists:get_value(response_limit, Options, 128*1024)
             }.
 
 %% --------------------------------------------------------------------------

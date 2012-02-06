@@ -15,7 +15,8 @@ main(_) ->
     application:start(cowboy),
 
     StateEcho = sockjs_cowboy_handler:init_state(
-                  <<"/echo">>, fun service_echo/2, [{cookie_needed, true}]),
+                  <<"/echo">>, fun service_echo/2, [{cookie_needed, true},
+                                                    {response_limit, 4096}]),
     StateClose = sockjs_cowboy_handler:init_state(
                    <<"/close">>, fun service_close/2, []),
     StateAmplify = sockjs_cowboy_handler:init_state(

@@ -2,10 +2,10 @@
 
 % none
 -export([welcome_screen/3, options/3, iframe/3, info_test/3]).
+% send
+-export([xhr_polling/4, xhr_streaming/4]).
 % recv
 -export([xhr_send/4]).
-% send
--export([xhr_polling/4]).
 
 -include("sockjs_internal.hrl").
 
@@ -80,9 +80,19 @@ info_test(Req, Headers, #service{websocket = Websocket,
 %% --------------------------------------------------------------------------
 
 -spec xhr_polling(req(), headers(), service(), session()) -> req().
-xhr_polling(Req, Headers, _Service, Session) ->
+xhr_polling(Req, Headers, Service, Session) ->
     Req1 = chunk_start(Req, Headers),
-    reply_loop(Req1, Session, true, fun fmt_xhr/1).
+    reply_loop(Req1, Session, 1, fun fmt_xhr/1, Service).
+
+-spec xhr_streaming(req(), headers(), service(), session()) -> req().
+xhr_streaming(Req, Headers, Service = #service{response_limit = ResponseLimit},
+              Session) ->
+    Req1 = chunk_start(Req, Headers),
+    %% IE requires 2KB prefix:
+    %% http://blogs.msdn.com/b/ieinternals/archive/2010/04/06/comet-streaming-in-internet-explorer-with-xmlhttprequest-and-xdomainrequest.aspx
+    {_, Req2} = chunk(Req1, list_to_binary(string:copies("h", 2048)),
+                      fun fmt_xhr/1),
+    reply_loop(Req2, Session, ResponseLimit, fun fmt_xhr/1, Service).
 
 %% --------------------------------------------------------------------------
 
@@ -122,26 +132,32 @@ chunk_start(Req, Headers, ContentType) ->
     sockjs_http:chunk_start(200, [{"Content-Type", ContentType}] ++ Headers,
                             Req).
 
-reply_loop(Req, SessionId, Once, Fmt) ->
-    {ok, Heartbeat} = application:get_env(sockjs, heartbeat_ms),
-    case sockjs_session:reply(SessionId, Once) of
+reply_loop(Req, SessionId, ResponseLimit, Fmt,
+           Service = #service{heartbeat_delay = Heartbeat}) ->
+    case sockjs_session:reply(SessionId) of
         wait           -> receive
-                              go -> reply_loop(Req, SessionId, Once, Fmt)
+                              go -> reply_loop(Req, SessionId, ResponseLimit,
+                                               Fmt, Service)
                           after Heartbeat ->
                                   {_, Req2} = chunk(Req, <<"h">>, Fmt),
-                                  reply_loop0(Req2, SessionId, Once, Fmt)
+                                  reply_loop0(Req2, SessionId, ResponseLimit,
+                                              Fmt, Service)
                           end;
         session_in_use -> Err = sockjs_util:encode_frame({close, ?STILL_OPEN}),
                           {ok, Req2} = chunk(Req, Err, Fmt),
                           sockjs_http:chunk_end(Req2);
-        Reply          -> {_, Req2} = chunk(Req, Reply, Fmt),
-                          reply_loop0(Req2, SessionId, Once, Fmt)
+        Reply          ->
+            Reply2 = iolist_to_binary(Reply),
+            {_, Req2} = chunk(Req, Reply2, Fmt),
+            reply_loop0(Req2, SessionId,
+                        ResponseLimit - byte_size(Reply2),
+                        Fmt, Service)
     end.
 
-reply_loop0(Req, _SessionId, true, _Fmt) ->
+reply_loop0(Req, _SessionId, ResponseLimit, _Fmt, _Service) when ResponseLimit =< 0 ->
     sockjs_http:chunk_end(Req);
-reply_loop0(Req, SessionId, false, Fmt) ->
-    reply_loop(Req, SessionId, false, Fmt).
+reply_loop0(Req, SessionId, ResponseLimit, Fmt, Service) ->
+    reply_loop(Req, SessionId, ResponseLimit, Fmt, Service).
 
 chunk(Req, Body)      -> sockjs_http:chunk(Body, Req).
 chunk(Req, Body, Fmt) -> chunk(Req, Fmt(Body)).

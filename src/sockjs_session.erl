@@ -4,7 +4,7 @@
 -behaviour(gen_server).
 
 -export([init/0, start_link/2]).
--export([maybe_create/2, reply/2, received/2]).
+-export([maybe_create/2, reply/1, received/2]).
 -export([send/2, close/3]).
 
 
@@ -65,8 +65,8 @@ close(Code, Reason, {?MODULE, {_, SPid}}) ->
     gen_server:cast(SPid, {close, Code, Reason}),
     ok.
 
-reply(SessionId, Once) ->
-    gen_server:call(spid(SessionId), {reply, self(), Once}, infinity).
+reply(SessionId) ->
+    gen_server:call(spid(SessionId), {reply, self()}, infinity).
 
 %% --------------------------------------------------------------------------
 
@@ -125,17 +125,17 @@ init({SessionId, #service{callback         = Callback,
                   handle = {?MODULE, {sockjs_util:guid(), self()}}}}.
 
 
-handle_call({reply, Pid, _}, _From, State = #session{ready_state = connecting}) ->
+handle_call({reply, Pid}, _From, State = #session{ready_state = connecting}) ->
     emit(init, State),
     reply(sockjs_util:encode_frame({open, nil}), Pid,
           State#session{ready_state = open});
 
-handle_call({reply, Pid, _}, _From, State = #session{ready_state = closed,
+handle_call({reply, Pid}, _From, State = #session{ready_state = closed,
                                                      close_msg = CloseMsg}) ->
     reply(sockjs_util:encode_frame({close, CloseMsg}), Pid, State);
 
 
-handle_call({reply, Pid, _Once}, _From, State = #session{ready_state = open,
+handle_call({reply, Pid}, _From, State = #session{ready_state = open,
                                                          response_pid = RPid,
                                                          outbound_queue = Q}) ->
     {Messages, Q1} = {queue:to_list(Q), queue:new()},
