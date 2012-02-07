@@ -94,7 +94,11 @@ mark_waiting(Pid, State = #session{response_pid    = undefined,
             _         -> erlang:cancel_timer(Ref)
         end,
     State#session{response_pid    = Pid,
-                  session_timeout = undefined}.
+                  session_timeout = undefined};
+mark_waiting(Pid, State = #session{response_pid    = Pid,
+                                   session_timeout = undefined}) ->
+    %% The same process may ask for messages multiple times.
+    State.
 
 unmark_waiting(State = #session{response_pid = RPid,
                                 session_timeout = undefined,
