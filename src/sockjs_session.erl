@@ -168,8 +168,8 @@ handle_call({reply, Pid}, _From, State = #session{
     end;
 
 handle_call({received, Messages}, _From, State = #session{ready_state = open}) ->
-    _ = [ emit({recv, iolist_to_binary(Message)}, State) ||
-            Message <- Messages],
+    _ = [ emit({recv, iolist_to_binary(Msg)}, State) ||
+            Msg <- Messages],
     {reply, ok, State};
 
 handle_call({received, _Data}, _From, State = #session{ready_state = _Any}) ->
