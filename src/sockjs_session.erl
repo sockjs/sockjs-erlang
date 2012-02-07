@@ -34,7 +34,7 @@
 
 -spec init() -> ok.
 init() ->
-    ets:new(?ETS, [public, named_table]),
+    _ = ets:new(?ETS, [public, named_table]),
     ok.
 
 -spec start_link(session_or_undefined(), service()) -> {ok, pid()}.
@@ -71,7 +71,8 @@ close(Code, Reason, {?MODULE, {_, SPid}}) ->
     gen_server:cast(SPid, {close, Code, Reason}),
     ok.
 
--spec reply(session_or_pid()) -> ok.
+-spec reply(session_or_pid()) ->
+                   wait | session_in_use | {ok | close, iodata()}.
 reply(SessionPid) when is_pid(SessionPid) ->
     gen_server:call(SessionPid, {reply, self()}, infinity);
 reply(SessionId) ->
@@ -88,10 +89,10 @@ spid(SessionId) ->
 mark_waiting(Pid, State = #session{response_pid    = undefined,
                                    session_timeout = Ref}) ->
     link(Pid),
-    case Ref of
-        undefined -> ok;
-        _         -> erlang:cancel_timer(Ref)
-    end,
+    _ = case Ref of
+            undefined -> ok;
+            _         -> erlang:cancel_timer(Ref)
+        end,
     State#session{response_pid    = Pid,
                   session_timeout = undefined}.
 
@@ -109,7 +110,7 @@ unmark_waiting(State = #session{response_pid = RPid,
 unmark_waiting(State = #session{response_pid = undefined,
                                 session_timeout = Ref,
                                 disconnect_delay = DisconnectDelay}) ->
-    erlang:cancel_timer(Ref),
+    _ = erlang:cancel_timer(Ref),
     Ref1 = erlang:send_after(DisconnectDelay, self(), session_timeout),
     State#session{session_timeout = Ref1}.
 
@@ -207,8 +208,7 @@ handle_info(Info, State) ->
     {stop, {odd_info, Info}, State}.
 
 
-terminate(Reason, State = #session{id = SessionId}) ->
-    io:format("exit reason ~p ~n", [Reason]),
+terminate(_Reason, State = #session{id = SessionId}) ->
     ets:delete(?ETS, SessionId),
     emit(closed, State),
     ok.

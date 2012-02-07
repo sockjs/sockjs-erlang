@@ -57,8 +57,8 @@ websocket_handle({text, Data = <<$[, _Rest/binary>>}, Req,
                  {SessionPid, _Service} = S) ->
     case sockjs_json:decode(Data) of
         {ok, Messages} when is_list(Messages) ->
-            [sockjs_session:received(Message, SessionPid) ||
-                Message <- Messages],
+            _ = [sockjs_session:received(Message, SessionPid) ||
+                    Message <- Messages],
             {ok, Req, S};
         _Else ->
             {shutdown, Req, S}
