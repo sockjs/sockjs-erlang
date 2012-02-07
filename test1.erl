@@ -13,7 +13,7 @@ main(_) ->
     Port = 8081,
     application:start(sockjs),
     application:start(cowboy),
-    SockjsState = sockjs_cowboy_handler:init_state(
+    SockjsState = sockjs_handler:init_state(
                     <<"/echo">>, fun service_echo/2, []),
     VhostRoutes = [{[<<"echo">>, '...'], sockjs_cowboy_handler, SockjsState},
                    {'_', ?MODULE, []}],

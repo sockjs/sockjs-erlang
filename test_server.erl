@@ -14,16 +14,16 @@ main(_) ->
     application:start(sockjs),
     application:start(cowboy),
 
-    StateEcho = sockjs_cowboy_handler:init_state(
+    StateEcho = sockjs_handler:init_state(
                   <<"/echo">>, fun service_echo/2, [{cookie_needed, true},
                                                     {response_limit, 4096}]),
-    StateClose = sockjs_cowboy_handler:init_state(
+    StateClose = sockjs_handler:init_state(
                    <<"/close">>, fun service_close/2, []),
-    StateAmplify = sockjs_cowboy_handler:init_state(
+    StateAmplify = sockjs_handler:init_state(
                      <<"/amplify">>, fun service_amplify/2, []),
-    StateBroadcast = sockjs_cowboy_handler:init_state(
+    StateBroadcast = sockjs_handler:init_state(
                        <<"/broadcast">>, fun service_broadcast/2, []),
-    StateDWSEcho = sockjs_cowboy_handler:init_state(
+    StateDWSEcho = sockjs_handler:init_state(
                   <<"/disabled_websocket_echo">>, fun service_echo/2,
                      [{websocket, false}]),
 

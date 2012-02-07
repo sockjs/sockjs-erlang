@@ -1,9 +1,31 @@
 -module(sockjs_handler).
 
+-export([init_state/3]).
 -export([is_valid_ws/2]).
 -export([dispatch_req/2, handle_req/2]).
 
 -include("sockjs_internal.hrl").
+
+%% --------------------------------------------------------------------------
+
+-spec init_state(binary(), callback(), list(tuple())) -> service().
+init_state(Prefix, Callback, Options) ->
+    Url = proplists:get_value("url", Options,
+                              "http://cdn.sockjs.org/sockjs-0.2.js"),
+    #service{prefix = binary_to_list(Prefix),
+             callback = Callback,
+             url = Url,
+             websocket =
+                 proplists:get_value(websocket, Options, true),
+             cookie_needed =
+                 proplists:get_value(cookie_needed, Options, false),
+             disconnect_delay =
+                 proplists:get_value(disconnect_delay, Options, 5000),
+             heartbeat_delay =
+                 proplists:get_value(heartbeat_delay, Options, 25000),
+             response_limit =
+                 proplists:get_value(response_limit, Options, 128*1024)
+            }.
 
 %% --------------------------------------------------------------------------
 
