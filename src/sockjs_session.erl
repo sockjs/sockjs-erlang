@@ -85,26 +85,6 @@ spid(SessionId) ->
         [{_, SPid}] -> SPid
     end.
 
-%% pop_type_from_queue(Q) ->
-%%     {PoppedRev, Rest} = pop_type_from_queue(any, [], Q),
-%%     {lists:reverse(PoppedRev), Rest}.
-
-%% pop_type_from_queue(TypeAcc, Acc, Q) ->
-%%     case queue:peek(Q) of
-%%         {value, {Type, _}} when TypeAcc =:= any orelse TypeAcc =:= Type ->
-%%             {{value, Val}, Q2} = queue:out(Q),
-%%             pop_type_from_queue(Type, [Val | Acc], Q2);
-%%         _ -> {Acc, Q}
-%%     end.
-
-
-%% maybe_close([{close, _}] = Msg, State = #session{closed = false}) ->
-%%     State#session{closed = true, close_msg = Msg};
-%% maybe_close([{close, _}],       _State) ->
-%%     exit(assertion_failed);
-%% maybe_close(_,                  State) ->
-%%     State.
-
 mark_waiting(Pid, State = #session{response_pid    = undefined,
                                    session_timeout = Ref}) ->
     link(Pid),

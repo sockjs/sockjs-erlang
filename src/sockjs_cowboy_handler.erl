@@ -40,7 +40,8 @@ websocket_init(_TransportName, Req, Service) ->
     self() ! go,
     {ok, Req, {SessionPid, Service}}.
 
-websocket_handle({text, <<>>}, Req, {SessionPid, _Service} = S) ->
+%% Ignore empty
+websocket_handle({text, <<>>}, Req, S) ->
     {ok, Req, S};
 websocket_handle({text, <<$", Rest/binary>>}, Req,
                  {SessionPid, _Service} = S) ->
@@ -61,7 +62,9 @@ websocket_handle({text, Data = <<$[, _Rest/binary>>}, Req,
             {ok, Req, S};
         _Else ->
             {shutdown, Req, S}
-    end.
+    end;
+websocket_handle(_Unknown, Req, S) ->
+    {shutdown, Req, S}.
 
 websocket_info(go, Req, {SessionPid, _Service} = S) ->
     case sockjs_session:reply(SessionPid) of
@@ -74,8 +77,8 @@ websocket_info(go, Req, {SessionPid, _Service} = S) ->
             self() ! shutdown,
             {reply, {text, iolist_to_binary(Data)}, Req, S}
     end;
-websocket_info(shutdown, Req, {SessionPid, _Service} = S) ->
+websocket_info(shutdown, Req, S) ->
     {shutdown, Req, S}.
 
-websocket_terminate(_Reason, _Req, {_SessionPid, _Service}) ->
+websocket_terminate(_Reason, _Req, _S) ->
     ok.
