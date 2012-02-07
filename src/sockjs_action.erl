@@ -206,21 +206,20 @@ reply_loop(Req, SessionId, ResponseLimit, Fmt,
                                   reply_loop0(Req2, SessionId, ResponseLimit,
                                               Fmt, Service)
                           end;
-        session_in_use -> Err = sockjs_util:encode_frame({close, ?STILL_OPEN}),
-                          Req2 = chunk(Req0, Err, Fmt),
-                          sockjs_http:chunk_end(Req2);
-        {ok, Frame}    -> Frame2 = iolist_to_binary(Frame),
+        session_in_use -> Frame = sockjs_util:encode_frame({close, ?STILL_OPEN}),
+                          chunk_end(Req0, Frame, Fmt);
+        {close, Frame} -> Frame1 = sockjs_util:encode_frame(Frame),
+                          chunk_end(Req0, Frame1, Fmt);
+        {ok, Frame}    -> Frame1 = sockjs_util:encode_frame(Frame),
+                          Frame2 = iolist_to_binary(Frame1),
                           Req2 = chunk(Req0, Frame2, Fmt),
                           reply_loop0(Req2, SessionId,
                                       ResponseLimit - size(Frame2),
-                                      Fmt, Service);
-        {close, Frame} ->
-                          Req2 = chunk(Req0, Frame, Fmt),
-                          sockjs_http:chunk_end(Req2)
+                                      Fmt, Service)
     end.
 
 reply_loop0(Req, _SessionId, ResponseLimit, _Fmt, _Service) when ResponseLimit =< 0 ->
-    sockjs_http:chunk_end(Req);
+    chunk_end(Req);
 reply_loop0(Req, SessionId, ResponseLimit, Fmt, Service) ->
     reply_loop(Req, SessionId, ResponseLimit, Fmt, Service).
 
@@ -229,6 +228,9 @@ chunk(Req, Body)      ->
     Req1.
 chunk(Req, Body, Fmt) -> chunk(Req, Fmt(Body)).
 
+chunk_end(Req) -> sockjs_http:chunk_end(Req).
+chunk_end(Req, Body, Fmt) -> Req1 = chunk(Req, Body, Fmt),
+                             chunk_end(Req1).
 
 -spec fmt_xhr(iodata()) -> iodata().
 fmt_xhr(Body) -> [Body, "\n"].

@@ -61,14 +61,16 @@ websocket_handle(_Unknown, Req, S) ->
 
 websocket_info(go, Req, {SessionPid, _Service} = S) ->
     case sockjs_session:reply(SessionPid) of
-        {ok, Data} ->
+        {ok, Frame} ->
             self() ! go,
-            {reply, {text, iolist_to_binary(Data)}, Req, S};
+            Frame1 = sockjs_util:encode_frame(Frame),
+            {reply, {text, iolist_to_binary(Frame1)}, Req, S};
         wait ->
             {ok, Req, S};
-        {close, Data} ->
+        {close, Frame} ->
             self() ! shutdown,
-            {reply, {text, iolist_to_binary(Data)}, Req, S}
+            Frame1 = sockjs_util:encode_frame(Frame),
+            {reply, {text, iolist_to_binary(Frame1)}, Req, S}
     end;
 websocket_info(shutdown, Req, S) ->
     {shutdown, Req, S}.

@@ -72,7 +72,7 @@ close(Code, Reason, {?MODULE, {_, SPid}}) ->
     ok.
 
 -spec reply(session_or_pid()) ->
-                   wait | session_in_use | {ok | close, iodata()}.
+                   wait | session_in_use | {ok | close, {open | close, any()}}.
 reply(SessionPid) when is_pid(SessionPid) ->
     gen_server:call(SessionPid, {reply, self()}, infinity);
 reply(SessionId) ->
@@ -141,13 +141,13 @@ init({SessionId, #service{callback         = Callback,
 handle_call({reply, _Pid}, _From, State = #session{ready_state = connecting}) ->
     emit(init, State),
     State1 = unmark_waiting(State),
-    {reply, {ok, sockjs_util:encode_frame({open, nil})},
+    {reply, {ok, {open, nil}},
      State1#session{ready_state = open}};
 
 handle_call({reply, _Pid}, _From, State = #session{ready_state = closed,
                                                   close_msg = CloseMsg}) ->
     State1 = unmark_waiting(State),
-    {reply, {close, sockjs_util:encode_frame({close, CloseMsg})}, State1};
+    {reply, {close, {close, CloseMsg}}, State1};
 
 handle_call({reply, Pid}, _From, State = #session{
                                    ready_state = open,
@@ -163,7 +163,7 @@ handle_call({reply, Pid}, _From, State = #session{
             {reply, session_in_use, State};
         {_, _} ->
             State1 = unmark_waiting(State),
-            {reply, {ok, sockjs_util:encode_frame({data, Messages})},
+            {reply, {ok, {data, Messages}},
              State1#session{outbound_queue = Q1}}
     end;
 
