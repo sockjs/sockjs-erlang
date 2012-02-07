@@ -33,29 +33,23 @@ terminate(_Req, _Service) ->
 
 %% --------------------------------------------------------------------------
 %% TODO: heartbeats
+%% TODO: infinity as delay
 
 websocket_init(_TransportName, Req, Service) ->
     SessionPid = sockjs_session:maybe_create(undefined,Service#service{
-                                                         disconnect_delay=0}),
+                                                         disconnect_delay=100}),
     self() ! go,
     {ok, Req, {SessionPid, Service}}.
 
 %% Ignore empty
 websocket_handle({text, <<>>}, Req, S) ->
     {ok, Req, S};
-websocket_handle({text, <<$", Rest/binary>>}, Req,
-                 {SessionPid, _Service} = S) ->
-    L = size(Rest) - 1,
-    case Rest of
-        <<Data:L/binary, $">> ->
-            sockjs_session:received([Data], SessionPid),
-            {ok, Req, S};
-        _Else ->
-            {shutdown, Req, S}
-    end;
-websocket_handle({text, Data = <<$[, _Rest/binary>>}, Req,
+websocket_handle({text, Data}, Req,
                  {SessionPid, _Service} = S) ->
     case sockjs_json:decode(Data) of
+        {ok, Msg} when is_binary(Msg) ->
+            sockjs_session:received([Msg], SessionPid),
+            {ok, Req, S};
         {ok, Messages} when is_list(Messages) ->
             sockjs_session:received(Messages, SessionPid),
             {ok, Req, S};
