@@ -235,13 +235,13 @@ fmt_xhr(Body) -> [Body, "\n"].
 
 -spec fmt_eventsource(iodata()) -> iodata().
 fmt_eventsource(Body) ->
-    Escaped = sockjs_util:url_escape(binary_to_list(Body),
+    Escaped = sockjs_util:url_escape(binary_to_list(iolist_to_binary(Body)),
                                      "%\r\n\0"), %% $% must be first!
     [<<"data: ">>, Escaped, <<"\r\n\r\n">>].
 
 -spec fmt_htmlfile(iodata()) -> iodata().
 fmt_htmlfile(Body) ->
-    Double = sockjs_json:encode(Body),
+    Double = sockjs_json:encode(iolist_to_binary(Body)),
     [<<"<script>\np(">>, Double, <<");\n</script>\r\n">>].
 
 -spec fmt_jsonp(iodata(), iodata()) -> iodata().
@@ -249,7 +249,7 @@ fmt_jsonp(Body, Callback) ->
     %% Yes, JSONed twice, there isn't a a better way, we must pass
     %% a string back, and the script, will be evaled() by the
     %% browser.
-    [Callback, "(", sockjs_json:encode(Body), ");\r\n"].
+    [Callback, "(", sockjs_json:encode(iolist_to_binary(Body)), ");\r\n"].
 
 %% --------------------------------------------------------------------------
 
