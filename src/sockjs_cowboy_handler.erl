@@ -32,15 +32,50 @@ terminate(_Req, _Service) ->
     ok.
 
 %% --------------------------------------------------------------------------
+%% TODO: heartbeats
 
 websocket_init(_TransportName, Req, Service) ->
-    {ok, Req, Service}.
+    SessionPid = sockjs_session:maybe_create(undefined,Service#service{
+                                                         disconnect_delay=0}),
+    self() ! go,
+    {ok, Req, {SessionPid, Service}}.
 
-websocket_handle(_Data, Req, Service) ->
-    {ok, Req, Service}.
+websocket_handle({text, <<>>}, Req, {SessionPid, _Service} = S) ->
+    {ok, Req, S};
+websocket_handle({text, <<$", Rest/binary>>}, Req,
+                 {SessionPid, _Service} = S) ->
+    L = size(Rest) - 1,
+    case Rest of
+        <<Data:L/binary, $">> ->
+            sockjs_session:received(Data, SessionPid),
+            {ok, Req, S};
+        _Else ->
+            {shutdown, Req, S}
+    end;
+websocket_handle({text, Data = <<$[, _Rest/binary>>}, Req,
+                 {SessionPid, _Service} = S) ->
+    case sockjs_json:decode(Data) of
+        {ok, Messages} when is_list(Messages) ->
+            [sockjs_session:received(Message, SessionPid) ||
+                Message <- Messages],
+            {ok, Req, S};
+        _Else ->
+            {shutdown, Req, S}
+    end.
 
-websocket_info(_Info, Req, Service) ->
-    {ok, Req, Service}.
+websocket_info(go, Req, {SessionPid, _Service} = S) ->
+    case sockjs_session:reply(SessionPid) of
+        {ok, Data} ->
+            self() ! go,
+            {reply, {text, iolist_to_binary(Data)}, Req, S};
+        wait ->
+            {ok, Req, S};
+        {close, Data} ->
+            self() ! shutdown,
+            {reply, {text, iolist_to_binary(Data)}, Req, S}
+    end;
+websocket_info(shutdown, Req, {SessionPid, _Service} = S) ->
+    {shutdown, Req, S}.
 
-websocket_terminate(_Reason, _Req, _Service) ->
+websocket_terminate(_Reason, _Req, {_SessionPid, _Service}) ->
     ok.
