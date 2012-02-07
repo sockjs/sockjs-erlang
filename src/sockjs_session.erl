@@ -11,7 +11,7 @@
 -export([init/1, handle_call/3, handle_info/2, terminate/2, code_change/3,
          handle_cast/2]).
 
--record(session, {id,
+-record(session, {id :: session() | undefined,
                   outbound_queue = queue:new(),
                   response_pid,
                   receiver,
@@ -27,6 +27,9 @@
 
 -include("sockjs_internal.hrl").
 
+-type(session_or_undefined() :: session() | undefined).
+-type(session_or_pid() :: session() | pid()).
+
 %% --------------------------------------------------------------------------
 
 -spec init() -> ok.
@@ -34,27 +37,29 @@ init() ->
     ets:new(?ETS, [public, named_table]),
     ok.
 
--spec start_link(session(), service()) -> {ok, pid()}.
+-spec start_link(session_or_undefined(), service()) -> {ok, pid()}.
 start_link(SessionId, Service) ->
     gen_server:start_link(?MODULE, {SessionId, Service}, []).
 
--spec maybe_create(session(), service()) -> ok.
+-spec maybe_create(session_or_undefined(), service()) -> pid().
 maybe_create(SessionId, Service) ->
     case ets:lookup(?ETS, SessionId) of
-        []           -> {ok, _SPid} = sockjs_session_sup:start_child(
-                                        SessionId, Service),
-                        ok;
-        [{_, _SPid}] -> ok
+        []          -> {ok, SPid} = sockjs_session_sup:start_child(
+                                      SessionId, Service),
+                       SPid;
+        [{_, SPid}] -> SPid
     end.
 
 
--spec received(iodata(), session()) -> ok.
+-spec received(iodata(), session_or_pid()) -> ok.
+received(Data, SessionPid) when is_pid(SessionPid) ->
+    case gen_server:call(SessionPid, {received, Data}, infinity) of
+        ok    -> ok;
+        error -> throw(no_session)
+                 %% TODO: should we respond 404 when session is closed?
+    end;
 received(Data, SessionId) ->
-    case gen_server:call(spid(SessionId), {received, Data}, infinity) of
-        ok -> ok;
-        error -> %% TODO: should we respond 404 when session is closed?
-            throw(no_session)
-    end.
+    received(Data, spid(SessionId)).
 
 -spec send(iodata(), handle()) -> ok.
 send(Data, {?MODULE, {_, SPid}}) ->
@@ -66,8 +71,11 @@ close(Code, Reason, {?MODULE, {_, SPid}}) ->
     gen_server:cast(SPid, {close, Code, Reason}),
     ok.
 
+-spec reply(session_or_pid()) -> ok.
+reply(SessionPid) when is_pid(SessionPid) ->
+    gen_server:call(SessionPid, {reply, self()}, infinity);
 reply(SessionId) ->
-    gen_server:call(spid(SessionId), {reply, self()}, infinity).
+    reply(spid(SessionId)).
 
 %% --------------------------------------------------------------------------
 
@@ -131,10 +139,13 @@ emit(What, #session{callback = Callback,
 
 %% --------------------------------------------------------------------------
 
--spec init({session(), service()}) -> {ok, #session{}}.
+-spec init({session_or_undefined(), service()}) -> {ok, #session{}}.
 init({SessionId, #service{callback         = Callback,
                           disconnect_delay = DisconnectDelay}}) ->
-    ets:insert(?ETS, {SessionId, self()}),
+    case SessionId of
+        undefined -> ok;
+        _Else     -> ets:insert(?ETS, {SessionId, self()})
+    end,
     process_flag(trap_exit, true),
     {ok, #session{id = SessionId,
                   callback = Callback,
@@ -142,13 +153,13 @@ init({SessionId, #service{callback         = Callback,
                   handle = {?MODULE, {sockjs_util:guid(), self()}}}}.
 
 
-handle_call({reply, Pid}, _From, State = #session{ready_state = connecting}) ->
+handle_call({reply, _Pid}, _From, State = #session{ready_state = connecting}) ->
     emit(init, State),
     State1 = unmark_waiting(State),
     {reply, {ok, sockjs_util:encode_frame({open, nil})},
      State1#session{ready_state = open}};
 
-handle_call({reply, Pid}, _From, State = #session{ready_state = closed,
+handle_call({reply, _Pid}, _From, State = #session{ready_state = closed,
                                                   close_msg = CloseMsg}) ->
     State1 = unmark_waiting(State),
     {reply, {close, sockjs_util:encode_frame({close, CloseMsg})}, State1};
