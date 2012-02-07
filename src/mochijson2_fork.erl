@@ -1,6 +1,33 @@
 %% @author Bob Ippolito <bob@mochimedia.com>
 %% @copyright 2007 Mochi Media, Inc.
 
+%% Changes specific to SockJS: support for handling \xFFFE and \xFFFF
+%% characters. The usual xmerl_ucs:to_utf8 doesn't work for those (in
+%% fact these characters aren't valid unicode characters). But we can
+%% support them, why not:
+%%
+%% diff --git a/src/mochijson2_fork.erl b/src/mochijson2_fork.erl
+%% index ddd62c7..8c26fc6 100644
+%% --- a/src/mochijson2_fork.erl
+%% +++ b/src/mochijson2_fork.erl
+%% @@ -458,7 +458,14 @@ tokenize_string(B, S=#decoder{offset=O}, Acc) ->
+%%                  Acc1 = lists:reverse(xmerl_ucs:to_utf8(CodePoint), Acc),
+%%                  tokenize_string(B, ?ADV_COL(S, 12), Acc1);
+%%              true ->
+%% -                Acc1 = lists:reverse(xmerl_ucs:to_utf8(C), Acc),
+%% +                    R = if C < 16#FFFE ->
+%% +                                xmerl_ucs:to_utf8(C);
+%% +                           true ->
+%% +                                [16#E0 + (C bsr 12),
+%% +                                 128+((C bsr 6) band 16#3F),
+%% +                                 128+(C band 16#3F)]
+%% +                            end,
+%% +                Acc1 = lists:reverse(R, Acc),
+%%                  tokenize_string(B, ?ADV_COL(S, 6), Acc1)
+%%              end;
+%%          <<_:O/binary, C1, _/binary>> when C1 < 128 ->
+%%
+
 %% @doc Yet another JSON (RFC 4627) library for Erlang. mochijson2 works
 %%      with binaries as strings, arrays as lists (without an {array, _})
 %%      wrapper and it only knows how to decode UTF-8 (and ASCII).
@@ -458,7 +485,14 @@ tokenize_string(B, S=#decoder{offset=O}, Acc) ->
                 Acc1 = lists:reverse(xmerl_ucs:to_utf8(CodePoint), Acc),
                 tokenize_string(B, ?ADV_COL(S, 12), Acc1);
             true ->
-                Acc1 = lists:reverse(xmerl_ucs:to_utf8(C), Acc),
+                    R = if C < 16#FFFE ->
+                                xmerl_ucs:to_utf8(C);
+                           true ->
+                                [16#E0 + (C bsr 12),
+                                 128+((C bsr 6) band 16#3F),
+                                 128+(C band 16#3F)]
+                            end,
+                Acc1 = lists:reverse(R, Acc),
                 tokenize_string(B, ?ADV_COL(S, 6), Acc1)
             end;
         <<_:O/binary, C1, _/binary>> when C1 < 128 ->
