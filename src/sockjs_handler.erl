@@ -29,26 +29,21 @@ init_state(Prefix, Callback, Options) ->
 
 %% --------------------------------------------------------------------------
 
--spec is_valid_ws(service(), req()) -> {boolean(), req()}.
+-spec is_valid_ws(service(), req()) -> {boolean(), req(), tuple()}.
 is_valid_ws(Service, Req) ->
     {Dispatch, Req2} = dispatch_req(Service, Req),
     case Dispatch of
         {match, {_, websocket, _, _, _}} ->
-            case valid_ws_request(Service, Req2) of
-                {false, Req3} ->
-                    {false, Req3};
-                {true, Req3} ->
-                    {true, Req3}
-            end;
+            valid_ws_request(Service, Req2);
         _Else ->
-            {false, Req2}
+            {false, Req2, {}}
     end.
 
--spec valid_ws_request(service(), req()) -> {boolean(), req()}.
+-spec valid_ws_request(service(), req()) -> {boolean(), req(), tuple()}.
 valid_ws_request(_Service, Req) ->
     {R1, Req1} = valid_ws_upgrade(Req),
     {R2, Req2} = valid_ws_connection(Req1),
-    {R1 and R2, Req2}.
+    {R1 and R2, Req2, {R1, R2}}.
 
 valid_ws_upgrade(Req) ->
     case sockjs_http:header('Upgrade', Req) of

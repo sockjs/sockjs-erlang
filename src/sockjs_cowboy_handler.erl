@@ -15,9 +15,9 @@
 
 init({_Any, http}, Req, Service) ->
     case sockjs_handler:is_valid_ws(Service, {cowboy, Req}) of
-        {true, {cowboy, _Req1}} ->
+        {true, {cowboy, _Req1}, _Reason} ->
             {upgrade, protocol, cowboy_http_websocket};
-        {false, {cowboy, Req1}} ->
+        {false, {cowboy, Req1}, _Reason} ->
             {ok, Req1, Service}
     end.
 

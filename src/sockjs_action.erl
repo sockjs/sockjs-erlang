@@ -6,6 +6,8 @@
 -export([xhr_polling/4, xhr_streaming/4, eventsource/4, htmlfile/4]).
 % recv
 -export([xhr_send/4]).
+% misc
+-export([websocket/3]).
 
 -include("sockjs_internal.hrl").
 
@@ -215,3 +217,18 @@ fmt_eventsource(Body) ->
 fmt_htmlfile(Body) ->
     Double = sockjs_json:encode(Body),
     [<<"<script>\np(">>, Double, <<");\n</script>\r\n">>].
+
+%% --------------------------------------------------------------------------
+
+-spec websocket(req(), headers(), service()) -> req().
+websocket(Req, Headers, Service) ->
+    {false, Req1, {R1, R2}} = sockjs_handler:is_valid_ws(Service, Req),
+    case {R1, R2} of
+        {false, _} ->
+            %H = [{"content-type", "text/plain; charset=UTF-8"}],
+            sockjs_http:reply(400, Headers,
+                              "Can \"Upgrade\" only to \"WebSocket\".", Req1);
+        {_, false} ->
+            sockjs_http:reply(400, Headers,
+                              "\"Connection\" must be \"Upgrade\"", Req1)
+    end.
