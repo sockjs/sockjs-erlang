@@ -48,7 +48,7 @@ websocket_handle({text, <<$", Rest/binary>>}, Req,
     L = size(Rest) - 1,
     case Rest of
         <<Data:L/binary, $">> ->
-            sockjs_session:received(Data, SessionPid),
+            sockjs_session:received([Data], SessionPid),
             {ok, Req, S};
         _Else ->
             {shutdown, Req, S}
@@ -57,8 +57,7 @@ websocket_handle({text, Data = <<$[, _Rest/binary>>}, Req,
                  {SessionPid, _Service} = S) ->
     case sockjs_json:decode(Data) of
         {ok, Messages} when is_list(Messages) ->
-            _ = [sockjs_session:received(Message, SessionPid) ||
-                    Message <- Messages],
+            sockjs_session:received(Messages, SessionPid),
             {ok, Req, S};
         _Else ->
             {shutdown, Req, S}

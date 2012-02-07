@@ -51,15 +51,15 @@ maybe_create(SessionId, Service) ->
     end.
 
 
--spec received(iodata(), session_or_pid()) -> ok.
-received(Data, SessionPid) when is_pid(SessionPid) ->
-    case gen_server:call(SessionPid, {received, Data}, infinity) of
+-spec received(list(iodata()), session_or_pid()) -> ok.
+received(Messages, SessionPid) when is_pid(SessionPid) ->
+    case gen_server:call(SessionPid, {received, Messages}, infinity) of
         ok    -> ok;
         error -> throw(no_session)
                  %% TODO: should we respond 404 when session is closed?
     end;
-received(Data, SessionId) ->
-    received(Data, spid(SessionId)).
+received(Messages, SessionId) ->
+    received(Messages, spid(SessionId)).
 
 -spec send(iodata(), handle()) -> ok.
 send(Data, {?MODULE, {_, SPid}}) ->
@@ -163,8 +163,9 @@ handle_call({reply, Pid}, _From, State = #session{
              State1#session{outbound_queue = Q1}}
     end;
 
-handle_call({received, Data}, _From, State = #session{ready_state = open}) ->
-    emit({recv, iolist_to_binary(Data)}, State),
+handle_call({received, Messages}, _From, State = #session{ready_state = open}) ->
+    _ = [ emit({recv, iolist_to_binary(Message)}, State) ||
+            Message <- Messages],
     {reply, ok, State};
 
 handle_call({received, _Data}, _From, State = #session{ready_state = _Any}) ->
@@ -208,7 +209,7 @@ handle_info(Info, State) ->
     {stop, {odd_info, Info}, State}.
 
 
-terminate(_Reason, State = #session{id = SessionId}) ->
+terminate(normal, State = #session{id = SessionId}) ->
     ets:delete(?ETS, SessionId),
     emit(closed, State),
     ok.

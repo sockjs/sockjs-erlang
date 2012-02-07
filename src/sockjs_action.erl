@@ -167,7 +167,7 @@ handle_recv(Req, Body, Session) ->
             {error, sockjs_http:reply(500, [], "Payload expected.", Req)};
         _Any ->
             case sockjs_json:decode(Body) of
-                {ok, Decoded} ->
+                {ok, Decoded} when is_list(Decoded)->
                     sockjs_session:received(Decoded, Session),
                     ok;
                 {error, _} ->
