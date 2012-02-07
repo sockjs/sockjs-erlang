@@ -3,9 +3,9 @@
 % none
 -export([welcome_screen/3, options/3, iframe/3, info_test/3]).
 % send
--export([xhr_polling/4, xhr_streaming/4, eventsource/4, htmlfile/4]).
+-export([xhr_polling/4, xhr_streaming/4, eventsource/4, htmlfile/4, jsonp/4]).
 % recv
--export([xhr_send/4]).
+-export([xhr_send/4, jsonp_send/4]).
 % misc
 -export([websocket/3]).
 
@@ -107,19 +107,34 @@ eventsource(Req, Headers, Service = #service{response_limit = ResponseLimit},
 -spec htmlfile(req(), headers(), service(), session()) -> req().
 htmlfile(Req, Headers, Service = #service{response_limit = ResponseLimit},
          SessionId) ->
+    S = fun (Req1, CB) ->
+                Req2 = chunk_start(Req1, Headers, "text/html; charset=UTF-8"),
+                IFrame = iolist_to_binary(io_lib:format(?IFRAME_HTMLFILE, [CB])),
+                %% Safari needs at least 1024 bytes to parse the
+                %% website. Relevant:
+                %%   http://code.google.com/p/browsersec/wiki/Part2#Survey_of_content_sniffing_behaviors
+                Padding = string:copies(" ", 1024 - size(IFrame)),
+                Req3 = chunk(Req2, [IFrame, Padding, <<"\r\n\r\n">>]),
+                reply_loop(Req3, SessionId, ResponseLimit, fun fmt_htmlfile/1, Service)
+        end,
+    verify_callback(Req, S).
+
+-spec jsonp(req(), headers(), service(), session()) -> req().
+jsonp(Req, Headers, Service, SessionId) ->
+    S = fun (Req1, CB) ->
+                Req2 = chunk_start(Req1, Headers),
+                reply_loop(Req2, SessionId, 1,
+                           fun (Body) -> fmt_jsonp(Body, CB) end, Service)
+        end,
+    verify_callback(Req, S).
+
+verify_callback(Req, Success) ->
     {CB, Req1} = sockjs_http:callback(Req),
     case CB of
         undefined ->
             sockjs_http:reply(500, [], "\"callback\" parameter required", Req1);
         _ ->
-            Req2 = chunk_start(Req1, Headers, "text/html; charset=UTF-8"),
-            IFrame = iolist_to_binary(io_lib:format(?IFRAME_HTMLFILE, [CB])),
-            %% Safari needs at least 1024 bytes to parse the
-            %% website. Relevant:
-            %%   http://code.google.com/p/browsersec/wiki/Part2#Survey_of_content_sniffing_behaviors
-            Padding = string:copies(" ", 1024 - size(IFrame)),
-            Req3 = chunk(Req2, [IFrame, Padding, <<"\r\n\r\n">>]),
-            reply_loop(Req3, SessionId, ResponseLimit, fun fmt_htmlfile/1, Service)
+            Success(Req1, CB)
     end.
 
 %% --------------------------------------------------------------------------
@@ -133,6 +148,18 @@ xhr_send(Req, Headers, _Service, Session) ->
         ok ->
             H = [{"content-type", "text/plain; charset=UTF-8"}],
             sockjs_http:reply(204, H ++ Headers, "", Req1)
+    end.
+
+-spec jsonp_send(req(), headers(), service(), session()) -> req().
+jsonp_send(Req, Headers, _Service, Session) ->
+    {Body, Req1} = sockjs_http:body_qs(Req),
+    io:format("bodyqs = ~p~n", [Body]),
+    case handle_recv(Req1, Body, Session) of
+        {error, Req2} ->
+            Req2;
+        ok ->
+            H = [{"content-type", "text/plain; charset=UTF-8"}],
+            sockjs_http:reply(200, H ++ Headers, "ok", Req1)
     end.
 
 handle_recv(Req, Body, Session) ->
@@ -165,8 +192,7 @@ reply_loop(Req, SessionId, ResponseLimit, Fmt,
     Req0 = sockjs_http:hook_tcp_close(Req),
     case sockjs_session:reply(SessionId) of
         wait           -> receive
-                              {tcp_closed, XR} ->
-                                  io:format("tcp_closed ~p~n", [XR]),
+                              {tcp_closed, _} ->
                                   Req0;
                               {tcp, _S, _Data} ->
                                   io:format("GOT DATA ON socket, not expecitng that~n"),
@@ -217,6 +243,13 @@ fmt_eventsource(Body) ->
 fmt_htmlfile(Body) ->
     Double = sockjs_json:encode(Body),
     [<<"<script>\np(">>, Double, <<");\n</script>\r\n">>].
+
+-spec fmt_jsonp(iodata(), iodata()) -> iodata().
+fmt_jsonp(Body, Callback) ->
+    %% Yes, JSONed twice, there isn't a a better way, we must pass
+    %% a string back, and the script, will be evaled() by the
+    %% browser.
+    [Callback, "(", sockjs_json:encode(Body), ");\r\n"].
 
 %% --------------------------------------------------------------------------
 

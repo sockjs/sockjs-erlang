@@ -125,7 +125,7 @@ filters() ->
                                       {'OPTIONS', none, options,        OptsFilters}]},
      {t("/xhr_streaming"),           [{'POST',    send, xhr_streaming,  [h_sid, xhr_cors]},
                                       {'OPTIONS', none, options,        OptsFilters}]},
-     {t("/jsonp_send"),              [{'POST',    recv, jsonp_send,     [h_sid, expect_form]}]},
+     {t("/jsonp_send"),              [{'POST',    recv, jsonp_send,     [h_sid]}]},
      {t("/jsonp"),                   [{'GET',     send, jsonp,          [h_sid, h_no_cache]}]},
      {t("/eventsource"),             [{'GET',     send, eventsource,    [h_sid, h_no_cache]}]},
      {t("/htmlfile"),                [{'GET',     send, htmlfile,       [h_sid, h_no_cache]}]},

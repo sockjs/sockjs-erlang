@@ -1,6 +1,7 @@
 -module(sockjs_http).
 
--export([path/1, method/1, body/1, header/2, jsessionid/1, callback/1]).
+-export([path/1, method/1, body/1, body_qs/1, header/2, jsessionid/1,
+         callback/1]).
 -export([reply/4, chunk_start/3, chunk/2, chunk_end/1]).
 -export([hook_tcp_close/1, unhook_tcp_close/1, abruptly_kill/1]).
 -include("sockjs_internal.hrl").
@@ -25,6 +26,27 @@ method({misultin, Req} = R) -> {Req:get(method), R}.
 body({cowboy, Req})       -> {ok, Body, Req1} = cowboy_http_req:body(Req),
                              {Body, {cowboy, Req1}};
 body({misultin, Req} = R) -> {Req:get(body), R}.
+
+-spec body_qs(req()) -> {binary(), req()}.
+body_qs(Req) ->
+    {H, Req1} =  header('Content-Type', Req),
+    case H of
+        H when H =:= "text/plain" orelse H =:= "" ->
+            body(Req1);
+        _ ->
+            %% By default assume application/x-www-form-urlencoded
+            body_qs2(Req1)
+    end.
+body_qs2({cowboy, Req}) ->
+    {BodyQS, Req1} = cowboy_http_req:body_qs(Req),
+    case proplists:get_value(<<"d">>, BodyQS) of
+        undefined ->
+            {<<>>, {cowboy, Req1}};
+        V ->
+            {V, {cowboy, Req1}}
+    end;
+body_qs2({misultin, Req} = R) -> {proplists:get_value("d", Req:parse_post()), R}.
+
 
 -spec header(atom(), req()) -> {nonempty_string() | undefined, req()}.
 header(K, {cowboy, Req})->
