@@ -24,7 +24,7 @@ init({_Any, http}, Req, Service) ->
 handle(Req, Service) ->
     {Method, Req1} = sockjs_http:method({cowboy, Req}),
     {Path, Req2} = sockjs_http:path(Req1),
-    io:format("~s ~s ~n", [Method, Path]),
+    io:format("~s ~s~n", [Method, Path]),
     {cowboy, Req3} = sockjs_handler:handle_req(Service, Req2),
     {ok, Req3, Service}.
 
