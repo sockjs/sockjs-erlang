@@ -45,8 +45,11 @@ body_qs2({cowboy, Req}) ->
         V ->
             {V, {cowboy, Req1}}
     end;
-body_qs2({misultin, Req} = R) -> {proplists:get_value("d", Req:parse_post()), R}.
-
+body_qs2({misultin, Req} = R) ->
+    case proplists:get_value("d", Req:parse_post()) of
+        undefined -> {<<>>, R};
+        V         -> {iolist_to_binary(V), R}
+    end.
 
 -spec header(atom(), req()) -> {nonempty_string() | undefined, req()}.
 header(K, {cowboy, Req})->
@@ -111,6 +114,8 @@ chunk_start(Code, Headers, {cowboy, Req}) ->
     {ok, Req1} = cowboy_http_req:chunked_reply(Code, enbinary(Headers), Req),
     {cowboy, Req1};
 chunk_start(_Code, Headers, {misultin, Req} = R) ->
+    %% Untrap 'closed' message.
+    Req:options([{comet, true}]),
     Req:chunk(head, Headers),
     R.
 
