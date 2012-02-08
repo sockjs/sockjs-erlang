@@ -36,41 +36,38 @@ terminate(_Req, _Service) ->
 %% TODO: infinity as delay
 
 websocket_init(_TransportName, Req, Service) ->
-    SessionPid = sockjs_session:maybe_create(undefined,Service#service{
-                                                         disconnect_delay=100}),
+    SessionPid = sockjs_session:maybe_create(undefined, Service#service{
+                                                          disconnect_delay=100}),
+    {RawWebsocket, {cowboy, Req2}} =
+        case sockjs_handler:get_action(Service, {cowboy, Req}) of
+            {{match, WS}, Req1} when WS =:= websocket orelse
+                                     WS =:= rawwebsocket ->
+                {WS, Req1}
+        end,
     self() ! go,
-    {ok, Req, {SessionPid, Service}}.
+    {ok, Req2, {RawWebsocket, SessionPid}}.
 
-%% Ignore empty
-websocket_handle({text, <<>>}, Req, S) ->
-    {ok, Req, S};
-websocket_handle({text, Data}, Req,
-                 {SessionPid, _Service} = S) ->
-    case sockjs_json:decode(Data) of
-        {ok, Msg} when is_binary(Msg) ->
-            sockjs_session:received([Msg], SessionPid),
-            {ok, Req, S};
-        {ok, Messages} when is_list(Messages) ->
-            sockjs_session:received(Messages, SessionPid),
-            {ok, Req, S};
-        _Else ->
-            {shutdown, Req, S}
+websocket_handle({text, Data}, Req, {RawWebsocket, SessionPid} = S) ->
+    case sockjs_ws_handler:received(RawWebsocket, SessionPid, Data) of
+        ok       -> {ok, Req, S};
+        shutdown -> {shutdown, Req, S}
     end;
 websocket_handle(_Unknown, Req, S) ->
     {shutdown, Req, S}.
 
-websocket_info(go, Req, {SessionPid, _Service} = S) ->
-    case sockjs_session:reply(SessionPid) of
-        {ok, Frame} ->
-            self() ! go,
-            Frame1 = sockjs_util:encode_frame(Frame),
-            {reply, {text, iolist_to_binary(Frame1)}, Req, S};
+websocket_info(go, Req, {RawWebsocket, SessionPid} = S) ->
+    io:format("~p ~p~n", [RawWebsocket, SessionPid]),
+    case sockjs_ws_handler:reply(RawWebsocket, SessionPid) of
         wait ->
             {ok, Req, S};
-        {close, Frame} ->
+        {ok, Data} ->
+            self() ! go,
+            {reply, {text, Data}, Req, S};
+        {close, <<>>} ->
+            {shutdown, Req, S};
+        {close, Data} ->
             self() ! shutdown,
-            Frame1 = sockjs_util:encode_frame(Frame),
-            {reply, {text, iolist_to_binary(Frame1)}, Req, S}
+            {reply, {text, Data}, Req, S}
     end;
 websocket_info(shutdown, Req, S) ->
     {shutdown, Req, S}.

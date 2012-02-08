@@ -7,7 +7,7 @@
 % recv
 -export([xhr_send/4, jsonp_send/4]).
 % misc
--export([websocket/3]).
+-export([websocket/3, rawwebsocket/3]).
 
 -include("sockjs_internal.hrl").
 
@@ -267,3 +267,7 @@ websocket(Req, Headers, Service) ->
             sockjs_http:reply(400, Headers,
                               "\"Connection\" must be \"Upgrade\"", Req1)
     end.
+
+-spec rawwebsocket(req(), headers(), service()) -> req().
+rawwebsocket(Req, Headers, Service) ->
+    websocket(Req, Headers, Service).

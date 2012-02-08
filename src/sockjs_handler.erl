@@ -1,7 +1,7 @@
 -module(sockjs_handler).
 
 -export([init_state/3]).
--export([is_valid_ws/2]).
+-export([is_valid_ws/2, get_action/2]).
 -export([dispatch_req/2, handle_req/2]).
 
 -include("sockjs_internal.hrl").
@@ -31,12 +31,12 @@ init_state(Prefix, Callback, Options) ->
 
 -spec is_valid_ws(service(), req()) -> {boolean(), req(), tuple()}.
 is_valid_ws(Service, Req) ->
-    {Dispatch, Req2} = dispatch_req(Service, Req),
-    case Dispatch of
-        {match, {_, websocket, _, _, _}} ->
-            valid_ws_request(Service, Req2);
-        _Else ->
-            {false, Req2, {}}
+    case get_action(Service, Req) of
+        {{match, WS}, Req1} when WS =:= websocket orelse
+                                 WS =:= rawwebsocket ->
+            valid_ws_request(Service, Req1);
+        {_Else, Req1} ->
+            {false, Req1, {}}
     end.
 
 -spec valid_ws_request(service(), req()) -> {boolean(), req(), tuple()}.
@@ -66,6 +66,16 @@ valid_ws_connection(Req) ->
             Vs = [string:strip(T) ||
                      T <- string:tokens(string:to_lower(V), ",")],
             {lists:member("upgrade", Vs), Req2}
+    end.
+
+-spec get_action(service(), req()) -> {nomatch | {match, atom()}, req()}.
+get_action(Service, Req) ->
+    {Dispatch, Req1} = dispatch_req(Service, Req),
+    case Dispatch of
+        {match, {_, Action, _, _, _}} ->
+            {{match, Action}, Req1};
+        _Else ->
+            {nomatch, Req1}
     end.
 
 %% --------------------------------------------------------------------------
@@ -129,6 +139,7 @@ filters() ->
      {t("/jsonp"),                   [{'GET',     send, jsonp,          [h_sid, h_no_cache]}]},
      {t("/eventsource"),             [{'GET',     send, eventsource,    [h_sid, h_no_cache]}]},
      {t("/htmlfile"),                [{'GET',     send, htmlfile,       [h_sid, h_no_cache]}]},
+     {p("/websocket"),               [{'GET',     none, rawwebsocket,   []}]},
      {p(""),                         [{'GET',     none, welcome_screen, []}]},
      {p("/iframe[0-9-.a-z_]*.html"), [{'GET',     none, iframe,         [cache_for]}]},
      {p("/info"),                    [{'GET',     none, info_test,      [h_no_cache, xhr_cors]},
@@ -168,8 +179,8 @@ handle({match, {Type, Action, _Server, Session, Filters}}, Service, Req) ->
                         end, {[], Req}, Filters),
     case Type of
         send ->
-                _SPid = sockjs_session:maybe_create(Session, Service),
-                sockjs_action:Action(Req2, Headers, Service, Session);
+            _SPid = sockjs_session:maybe_create(Session, Service),
+            sockjs_action:Action(Req2, Headers, Service, Session);
         recv ->
             try
                 sockjs_action:Action(Req2, Headers, Service, Session)
