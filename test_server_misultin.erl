@@ -66,12 +66,9 @@ handle_ws(Req, Services) ->
         {Prefix, Service} ->
             sockjs_misultin_handler:handle_ws(Service, Req);
         false ->
-            io:format("bad!~n"),
+            %% abort any other ws request
             closed
-            %% Req:respond(404,
-            %%             <<"404 - Nothing here (via sockjs-erlang fallback)\n">>)
-    end,
-    io:format("EXIT~n").
+    end.
 
 %% --------------------------------------------------------------------------
 

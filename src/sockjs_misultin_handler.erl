@@ -21,7 +21,6 @@ handle_ws(Service, Req) ->
     handle_ws0({Req2, RawWebsocket, SessionPid}).
 
 handle_ws0({_Req, RawWebsocket, SessionPid} = S) ->
-    io:format("handle_ws0~n"),
     receive
         go ->
             case ws_loop(go, S) of
@@ -41,17 +40,14 @@ handle_ws0({_Req, RawWebsocket, SessionPid} = S) ->
 ws_loop(go, {Req, RawWebsocket, SessionPid}) ->
     case sockjs_ws_handler:reply(RawWebsocket, SessionPid) of
         wait ->
-            io:format("ok~n", []),
             ok;
         {ok, Data} ->
             self() ! go,
-            io:format("ok send: ~p~n", [Data]),
             Req:send(Data),
             ok;
         {close, <<>>} ->
             shutdown;
         {close, Data} ->
-            io:format("close send: ~p~n", [Data]),
             Req:send(Data),
             shutdown
     end.

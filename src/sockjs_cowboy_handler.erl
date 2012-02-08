@@ -36,10 +36,13 @@ terminate(_Req, _Service) ->
 %% TODO: infinity as delay
 
 websocket_init(_TransportName, Req, Service) ->
+    {LongPath, Req0} = cowboy_http_req:raw_path(Req),
+    io:format("WS ~s~n", [LongPath]),
+
     SessionPid = sockjs_session:maybe_create(undefined, Service#service{
                                                           disconnect_delay=100}),
     {RawWebsocket, {cowboy, Req2}} =
-        case sockjs_handler:get_action(Service, {cowboy, Req}) of
+        case sockjs_handler:get_action(Service, {cowboy, Req0}) of
             {{match, WS}, Req1} when WS =:= websocket orelse
                                      WS =:= rawwebsocket ->
                 {WS, Req1}
@@ -56,7 +59,6 @@ websocket_handle(_Unknown, Req, S) ->
     {shutdown, Req, S}.
 
 websocket_info(go, Req, {RawWebsocket, SessionPid} = S) ->
-    io:format("~p ~p~n", [RawWebsocket, SessionPid]),
     case sockjs_ws_handler:reply(RawWebsocket, SessionPid) of
         wait ->
             {ok, Req, S};
