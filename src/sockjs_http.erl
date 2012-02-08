@@ -20,7 +20,10 @@ path({misultin, Req} = R) -> case element(1, Req) of
 -spec method(req()) -> {atom(), req()}.
 method({cowboy, Req})       -> {Method, Req1} = cowboy_http_req:method(Req),
                                {Method, {cowboy, Req1}};
-method({misultin, Req} = R) -> {Req:get(method), R}.
+method({misultin, Req} = R) -> case element(1, Req) of
+                                   misultin_ws -> {'GET', R};
+                                   _           -> {Req:get(method), R}
+                               end.
 
 -spec body(req()) -> {binary(), req()}.
 body({cowboy, Req})       -> {ok, Body, Req1} = cowboy_http_req:body(Req),

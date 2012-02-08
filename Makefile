@@ -19,7 +19,7 @@ test:
 deps/misultin:
 	-mkdir -p deps
 	cd deps && \
-		git clone -b dev https://github.com/ostinelli/misultin.git
+		git clone -b master https://github.com/ostinelli/misultin.git
 
 deps/cowboy:
 	-mkdir -p deps

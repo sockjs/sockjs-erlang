@@ -33,7 +33,7 @@ main(_) ->
                          {autoexit, false},
                          {ws_autoexit, false},
                          {loop,    fun (Req) -> handle_http(Req, Services) end},
-                         {ws_loop, fun handle_ws/1}]),
+                         {ws_loop, fun (Req) -> handle_ws(Req, Services) end}]),
     receive
         _ -> ok
     end.
@@ -41,8 +41,8 @@ main(_) ->
 %% --------------------------------------------------------------------------
 
 handle_http(Req, Services) ->
-    {abs_path, Path} = Req:get(uri),
-    io:format("~p ~p ~n", [Req:get(method), Path]),
+    {abs_path, LongPath} = Req:get(uri),
+    io:format("~p ~p ~n", [Req:get(method), LongPath]),
     Prefix = case Req:resource([]) of
                  [H | _T] -> H;
                  []      -> nomatch
@@ -55,8 +55,23 @@ handle_http(Req, Services) ->
                         <<"404 - Nothing here (via sockjs-erlang fallback)\n">>)
     end.
 
-handle_ws(_Req) ->
-    ok.
+handle_ws(Req, Services) ->
+    LongPath = Req:get(path),
+    io:format("WS ~p ~n", [LongPath]),
+    Prefix = case string:tokens(LongPath, "/") of
+                 [H | _T] -> H;
+                 [] -> nomatch
+             end,
+    case lists:keyfind(Prefix, 1, Services) of
+        {Prefix, Service} ->
+            sockjs_misultin_handler:handle_ws(Service, Req);
+        false ->
+            io:format("bad!~n"),
+            closed
+            %% Req:respond(404,
+            %%             <<"404 - Nothing here (via sockjs-erlang fallback)\n">>)
+    end,
+    io:format("EXIT~n").
 
 %% --------------------------------------------------------------------------
 
