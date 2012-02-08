@@ -1,6 +1,9 @@
 -module(sockjs_ws_handler).
 
 -export([received/3, reply/2]).
+
+-include("sockjs_internal.hrl").
+
 %% --------------------------------------------------------------------------
 
 -spec received(websocket|rawwebsocket, pid(), binary()) -> ok | shutdown.

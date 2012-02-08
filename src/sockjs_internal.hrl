@@ -17,3 +17,7 @@
 -type(session() :: nonempty_string()).
 -type(user_session() :: nonempty_string()).
 -type(callback() :: fun((user_session(), init|closed|{recv, binary()}) -> ok)).
+
+-type(frame() :: {open, nil} |
+                 {close, {non_neg_integer(), string()}} |
+                 {data, list(iodata())}).

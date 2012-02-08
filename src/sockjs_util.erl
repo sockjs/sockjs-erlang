@@ -5,6 +5,8 @@
 -export([encode_frame/1]).
 -export([url_escape/2]).
 
+-include("sockjs_internal.hrl").
+
 %% --------------------------------------------------------------------------
 
 -spec rand32() -> non_neg_integer().
@@ -36,9 +38,7 @@ safe_encode(Binary) ->
           end, Base64).
 
 
--spec encode_frame({open, nil}) -> iodata();
-                  ({close, {non_neg_integer(), string()}}) -> iodata();
-                  ({data, list(iodata())}) -> iodata().
+-spec encode_frame(frame()) -> iodata().
 encode_frame({open, nil}) ->
     <<"o">>;
 encode_frame({close, {Code, Reason}}) ->

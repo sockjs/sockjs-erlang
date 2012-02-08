@@ -195,8 +195,8 @@ reply_loop(Req, SessionId, ResponseLimit, Fmt,
                                   Req0;
                               {tcp, _S, _Data} ->
                                   io:format("GOT DATA ON socket, not expecitng that~n"),
-                                  sockjs_http:abruptly_kill(Req),
-                                  Req0;
+                                  Req1 = sockjs_http:abruptly_kill(Req),
+                                  Req1;
                               go ->
                                   Req1 = sockjs_http:unhook_tcp_close(Req0),
                                   reply_loop(Req1, SessionId, ResponseLimit,
