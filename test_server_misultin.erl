@@ -54,10 +54,9 @@ handle_http(Req, Services) ->
     end.
 
 handle_ws(Req, Services) ->
-    LongPath = Req:get(path),
-    Prefix = case string:tokens(LongPath, "/") of
+    Prefix = case string:tokens(Req:get(path), "/") of
                  [H | _T] -> H;
-                 [] -> nomatch
+                 []       -> nomatch
              end,
     case lists:keyfind(Prefix, 1, Services) of
         {Prefix, Service} ->
@@ -69,19 +68,10 @@ handle_ws(Req, Services) ->
 
 %% --------------------------------------------------------------------------
 
-service_echo(Conn, Action) ->
-    %% io:format("~p ~p~n", [Conn, Action]),
-    case Action of
-        {recv, Data} ->
-            sockjs:send(Data, Conn);
-        _Else ->
-            ok
-    end,
-    ok.
+service_echo(Conn, {recv, Data}) -> sockjs:send(Data, Conn);
+service_echo(_Conn, _)           -> ok.
 
-service_close(Conn, _) ->
-    sockjs:close(3000, "Go away!", Conn),
-    ok.
+service_close(Conn, _)           -> sockjs:close(3000, "Go away!", Conn).
 
 service_amplify(Conn, {recv, Data}) ->
     N0 = list_to_integer(binary_to_list(Data)),

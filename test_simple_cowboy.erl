@@ -1,5 +1,6 @@
 #!/usr/bin/env escript
 %%! -smp disable +A1 +K true -pz ./ebin -pa deps/cowboy/ebin -input
+-module(test_simple_cowboy).
 -mode(compile).
 
 -export([main/1]).
@@ -12,15 +13,18 @@ main(_) ->
     Port = 8081,
     application:start(sockjs),
     application:start(cowboy),
+
     SockjsState = sockjs_handler:init_state(
                     <<"/echo">>, fun service_echo/2, []),
+
     VhostRoutes = [{[<<"echo">>, '...'], sockjs_cowboy_handler, SockjsState},
                    {'_', ?MODULE, []}],
     Routes = [{'_',  VhostRoutes}], % any vhost
+
+    io:format(" [*] Running at http://localhost:~p~n", [Port]),
     cowboy:start_listener(http, 100,
                           cowboy_tcp_transport, [{port,     Port}],
                           cowboy_http_protocol, [{dispatch, Routes}]),
-    io:format(" [*] Running at http://localhost:~p~n", [Port]),
     receive
         _ -> ok
     end.

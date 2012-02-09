@@ -1,5 +1,6 @@
 #!/usr/bin/env escript
 %%! -smp disable +A1 +K true -pz ./ebin -pa deps/cowboy/ebin -input
+-module(test_server_cowboy).
 -mode(compile).
 
 -export([main/1]).
@@ -34,10 +35,11 @@ main(_) ->
                 StateDWSEcho},
                {'_', ?MODULE, []}],
     Routes = [{'_',  VRoutes}], % any vhost
+
+    io:format(" [*] Running at http://localhost:~p~n", [Port]),
     cowboy:start_listener(http, 100,
                           cowboy_tcp_transport, [{port,     Port}],
                           cowboy_http_protocol, [{dispatch, Routes}]),
-    io:format(" [*] Running at http://localhost:~p~n", [Port]),
     receive
         _ -> ok
     end.
