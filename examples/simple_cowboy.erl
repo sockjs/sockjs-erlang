@@ -1,6 +1,6 @@
 #!/usr/bin/env escript
 %%! -smp disable +A1 +K true -pz ./ebin -pa deps/cowboy/ebin -input
--module(test_simple_cowboy).
+-module(simple_cowboy).
 -mode(compile).
 
 -export([main/1]).

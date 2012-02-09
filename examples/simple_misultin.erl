@@ -1,6 +1,6 @@
 #!/usr/bin/env escript
 %%! -smp disable +A1 +K true -pz ./ebin -pa deps/misultin/ebin -input
--module(test_simple_misultin).
+-module(simple_misultin).
 -mode(compile).
 
 -export([main/1]).
