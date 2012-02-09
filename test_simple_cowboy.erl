@@ -35,9 +35,9 @@ init({_Any, http}, Req, []) ->
     {ok, Req, []}.
 
 handle(Req, State) ->
-    {ok, Req2} = cowboy_http_req:reply(404, [],
+    {ok, Req1} = cowboy_http_req:reply(404, [],
                  <<"404 - Nothing here (via sockjs-erlang fallback)\n">>, Req),
-    {ok, Req2, State}.
+    {ok, Req1, State}.
 
 terminate(_Req, _State) ->
     ok.

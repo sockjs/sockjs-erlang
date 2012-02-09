@@ -41,15 +41,11 @@ handle_ws0({_Req, RawWebsocket, SessionPid} = S) ->
 
 ws_loop(go, {Req, RawWebsocket, SessionPid}) ->
     case sockjs_ws_handler:reply(RawWebsocket, SessionPid) of
-        wait ->
-            ok;
-        {ok, Data} ->
-            self() ! go,
-            Req:send(Data),
-            ok;
-        {close, <<>>} ->
-            shutdown;
-        {close, Data} ->
-            Req:send(Data),
-            shutdown
+        wait          -> ok;
+        {ok, Data}    -> self() ! go,
+                         Req:send(Data),
+                         ok;
+        {close, <<>>} -> shutdown;
+        {close, Data} -> Req:send(Data),
+                         shutdown
     end.
