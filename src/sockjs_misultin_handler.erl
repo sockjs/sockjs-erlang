@@ -8,6 +8,7 @@
 %% TODO: heartbeats
 %% TODO: infinity as delay
 
+-spec handle_ws(service(), any()) -> closed.
 handle_ws(Service = #service{logger = Logger}, Req) ->
     Req0 = Logger(Service, {misultin, Req}, websocket),
 

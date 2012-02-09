@@ -10,7 +10,7 @@ clean::
 	rm -rf priv/www
 
 distclean::
-	rm -rf deps priv
+	rm -rf deps priv ebin
 
 
 # **** serve ****
