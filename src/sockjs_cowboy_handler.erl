@@ -22,10 +22,7 @@ init({_Any, http}, Req, Service) ->
     end.
 
 handle(Req, Service) ->
-    {Method, Req1} = sockjs_http:method({cowboy, Req}),
-    {Path, Req2} = sockjs_http:path(Req1),
-    io:format("~s ~s~n", [Method, Path]),
-    {cowboy, Req3} = sockjs_handler:handle_req(Service, Req2),
+    {cowboy, Req3} = sockjs_handler:handle_req(Service, {cowboy, Req}),
     {ok, Req3, Service}.
 
 terminate(_Req, _Service) ->
@@ -35,14 +32,13 @@ terminate(_Req, _Service) ->
 %% TODO: heartbeats
 %% TODO: infinity as delay
 
-websocket_init(_TransportName, Req, Service) ->
-    {LongPath, Req0} = cowboy_http_req:raw_path(Req),
-    io:format("WS ~s~n", [LongPath]),
+websocket_init(_TransportName, Req, Service = #service{logger = Logger}) ->
+    Req0 = Logger(Service, {cowboy, Req}, websocket),
 
     SessionPid = sockjs_session:maybe_create(undefined, Service#service{
                                                           disconnect_delay=100}),
     {RawWebsocket, {cowboy, Req2}} =
-        case sockjs_handler:get_action(Service, {cowboy, Req0}) of
+        case sockjs_handler:get_action(Service, Req0) of
             {{match, WS}, Req1} when WS =:= websocket orelse
                                      WS =:= rawwebsocket ->
                 {WS, Req1}

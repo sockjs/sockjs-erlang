@@ -41,11 +41,9 @@ main(_) ->
 %% --------------------------------------------------------------------------
 
 handle_http(Req, Services) ->
-    {abs_path, LongPath} = Req:get(uri),
-    io:format("~p ~p ~n", [Req:get(method), LongPath]),
     Prefix = case Req:resource([]) of
                  [H | _T] -> H;
-                 []      -> nomatch
+                 []       -> nomatch
              end,
     case lists:keyfind(Prefix, 1, Services) of
         {Prefix, Service} ->
@@ -57,7 +55,6 @@ handle_http(Req, Services) ->
 
 handle_ws(Req, Services) ->
     LongPath = Req:get(path),
-    io:format("WS ~p ~n", [LongPath]),
     Prefix = case string:tokens(LongPath, "/") of
                  [H | _T] -> H;
                  [] -> nomatch

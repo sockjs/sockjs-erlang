@@ -8,9 +8,11 @@
 %% TODO: heartbeats
 %% TODO: infinity as delay
 
-handle_ws(Service, Req) ->
+handle_ws(Service = #service{logger = Logger}, Req) ->
+    Req0 = Logger(Service, {misultin, Req}, websocket),
+
     {RawWebsocket, {misultin, Req2}} =
-        case sockjs_handler:get_action(Service, {misultin, Req}) of
+        case sockjs_handler:get_action(Service, Req0) of
             {{match, WS}, Req1} when WS =:= websocket orelse
                                      WS =:= rawwebsocket ->
                 {WS, Req1}

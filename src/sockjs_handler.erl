@@ -24,7 +24,9 @@ init_state(Prefix, Callback, Options) ->
              heartbeat_delay =
                  proplists:get_value(heartbeat_delay, Options, 25000),
              response_limit =
-                 proplists:get_value(response_limit, Options, 128*1024)
+                 proplists:get_value(response_limit, Options, 128*1024),
+             logger =
+                 proplists:get_value(logger, Options, fun default_logger/3)
             }.
 
 %% --------------------------------------------------------------------------
@@ -159,8 +161,10 @@ re(Path, S) ->
 %% --------------------------------------------------------------------------
 
 -spec handle_req(service(), req()) -> req().
-handle_req(Service, Req) ->
-    {Dispatch, Req1} = dispatch_req(Service, Req),
+handle_req(Service = #service{logger = Logger}, Req) ->
+    Req0 = Logger(Service, Req, http),
+
+    {Dispatch, Req1} = dispatch_req(Service, Req0),
     handle(Dispatch, Service, Req1).
 
 handle(nomatch, _Service, Req) ->
@@ -191,3 +195,11 @@ handle({match, {Type, Action, _Server, Session, Filters}}, Service, Req) ->
         none ->
             sockjs_action:Action(Req2, Headers, Service)
     end.
+
+%% --------------------------------------------------------------------------
+
+default_logger(_Service, Req, Type) ->
+    {LongPath, Req1} = sockjs_http:path(Req),
+    {Method, Req2}   = sockjs_http:method(Req1),
+    io:format("~s ~s (~s)~n", [Method, LongPath, Type]),
+    Req2.
