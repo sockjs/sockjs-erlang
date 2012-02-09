@@ -203,8 +203,12 @@ reply_loop(Req, SessionId, ResponseLimit, Fmt,
                                   Req0;
                               %% In Cowboy we may in theory get real
                               %% http requests, this is bad.
-                              {tcp, _S, _Data} ->
-                                  io:format("GOT DATA ON socket, not expecitng that~n"),
+                              {tcp, _S, Data} ->
+                                  error_logger:error_msg(
+                                    "Received unexpected data on a "
+                                    "long-polling http connection: ~p. "
+                                    "Connection aborted.~n",
+                                    [Data]),
                                   Req1 = sockjs_http:abruptly_kill(Req),
                                   Req1;
                               go ->

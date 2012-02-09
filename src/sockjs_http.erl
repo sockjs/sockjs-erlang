@@ -168,6 +168,5 @@ abruptly_kill(R = {cowboy, Req}) ->
     T:shutdown(S, read_write),
     R;
 abruptly_kill(R = {misultin, _Req}) ->
-    %% TODO?
     R.
 
