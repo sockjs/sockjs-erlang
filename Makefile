@@ -1,30 +1,9 @@
-JSON=jiffy
-HTTP=cowboy
-
-.PHONY: all deps test test-prep clean distclean
-
-all: deps deps/$(HTTP)
-	make -C deps/$(HTTP)
+.PHONY: all deps clean distclean
+all: deps
 	./rebar compile
 
 deps:
 	./rebar get-deps
-
-test:
-	erl -pa ebin deps/*/ebin \
-		-sockjs json_impl $(JSON) \
-		-sockjs http_impl $(HTTP) \
-		-run test1
-
-deps/misultin:
-	-mkdir -p deps
-	cd deps && \
-		git clone -b master https://github.com/ostinelli/misultin.git
-
-deps/cowboy:
-	-mkdir -p deps
-	cd deps && \
-		git clone -b master https://github.com/extend/cowboy.git
 
 clean::
 	./rebar clean
@@ -33,6 +12,11 @@ clean::
 distclean::
 	rm -rf deps priv
 
+
+# **** serve ****
+
+.PHONY: serve
+SERVE_SCRIPT=./test_server_misultin.erl
 serve:
 	@if [ -e .pidfile.pid ]; then			\
 		kill `cat .pidfile.pid`;		\
@@ -42,7 +26,7 @@ serve:
 	@while [ 1 ]; do				\
 		rebar compile && (			\
 			echo " [*] Running erlang";	\
-			./test_server.erl &			\
+			$(SERVE_SCRIPT) &		\
 			SRVPID=$$!;			\
 			echo $$SRVPID > .pidfile.pid;	\
 			echo " [*] Pid: $$SRVPID";	\
@@ -54,6 +38,8 @@ serve:
 	done
 
 
+# **** dialyzer ****
+
 ERL_TOP=$(HOME)/.erlang-R15B/lib/erlang
 .dialyzer_generic.plt:
 	dialyzer					\
@@ -62,7 +48,7 @@ ERL_TOP=$(HOME)/.erlang-R15B/lib/erlang
 		--apps erts kernel stdlib compiler sasl os_mon mnesia \
 			tools public_key crypto ssl
 
-.dialyzer_sockjs.plt: # deps/*/ebin/*
+.dialyzer_sockjs.plt:
 	dialyzer				\
 		--no_native			\
 		--add_to_plt			\
@@ -80,6 +66,4 @@ dialyze: .dialyzer_sockjs.plt
 	  ebin
 
 xref:
-	./rebar xref
-
-check: xref dialyze
+	./rebar xref | egrep -v unused
