@@ -1,5 +1,5 @@
 #!/usr/bin/env escript
-%%! -smp disable +A1 +K true -pz ./ebin -pa deps/misultin/ebin -input -sname test1@localhost
+%%! -smp disable +A1 +K true -pz ./ebin -pa deps/misultin/ebin -input
 -module(test_server_misultin).
 -mode(compile).
 

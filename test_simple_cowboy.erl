@@ -1,6 +1,5 @@
 #!/usr/bin/env escript
-%%! -smp disable +A1 +K true -pz ./ebin -pa deps/cowboy/ebin -input -sname test1@localhost
--module(test1).
+%%! -smp disable +A1 +K true -pz ./ebin -pa deps/cowboy/ebin -input
 -mode(compile).
 
 -export([main/1]).

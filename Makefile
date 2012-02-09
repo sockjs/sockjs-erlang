@@ -53,9 +53,6 @@ serve:
 		sleep 0.1;				\
 	done
 
-remsh:
-	erl -sname test1remsh -remsh test1@localhost
-
 
 ERL_TOP=$(HOME)/.erlang-R15B/lib/erlang
 .dialyzer_generic.plt:
