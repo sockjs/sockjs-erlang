@@ -1,1 +1,6 @@
-All code is released under the MIT license, see LICENSE-MIT-SockJS.
+All code is released under the MIT license.
+
+All files are covered by LICENSE-MIT-SockJS, with exception of
+src/mochijson2_fork.erl and src/mochinum_fork.erl, which are forked
+from Mochiweb project (https://github.com/mochi/mochiweb) and covered
+by LICENSE-MIT-Mochiweb.
