@@ -18,7 +18,7 @@ handle_ws(Service = #service{logger = Logger}, Req) ->
                 {WS, Req1}
         end,
     SessionPid = sockjs_session:maybe_create(undefined, Service#service{
-                                                          disconnect_delay=100}),
+                                                          disconnect_delay=5000}),
     self() ! go,
     handle_ws0({Req2, RawWebsocket, SessionPid}).
 
