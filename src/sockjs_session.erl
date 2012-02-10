@@ -14,8 +14,7 @@
 -record(session, {id :: session() | undefined,
                   outbound_queue = queue:new(),
                   response_pid,
-                  receiver,
-                  session_timeout,
+                  session_tref,
                   disconnect_delay,
                   ready_state = connecting,
                   close_msg,
@@ -92,22 +91,22 @@ spid(SessionId) ->
         [{_, SPid}] -> SPid
     end.
 
-mark_waiting(Pid, State = #session{response_pid    = undefined,
-                                   session_timeout = Ref}) ->
+mark_waiting(Pid, State = #session{response_pid = undefined,
+                                   session_tref = Ref}) ->
     link(Pid),
     _ = case Ref of
             undefined -> ok;
             _         -> erlang:cancel_timer(Ref)
         end,
-    State#session{response_pid    = Pid,
-                  session_timeout = undefined};
-mark_waiting(Pid, State = #session{response_pid    = Pid,
-                                   session_timeout = undefined}) ->
+    State#session{response_pid = Pid,
+                  session_tref = undefined};
+mark_waiting(Pid, State = #session{response_pid = Pid,
+                                   session_tref = undefined}) ->
     %% The same process may ask for messages multiple times.
     State.
 
 unmark_waiting(State = #session{response_pid = RPid,
-                                session_timeout = undefined,
+                                session_tref = undefined,
                                 disconnect_delay = DisconnectDelay}) ->
     case RPid of
         undefined -> ok;
@@ -115,14 +114,14 @@ unmark_waiting(State = #session{response_pid = RPid,
             unlink(RPid)
     end,
     Ref = erlang:send_after(DisconnectDelay, self(), session_timeout),
-    State#session{response_pid    = undefined,
-                  session_timeout = Ref};
+    State#session{response_pid = undefined,
+                  session_tref = Ref};
 unmark_waiting(State = #session{response_pid = undefined,
-                                session_timeout = Ref,
+                                session_tref = Ref,
                                 disconnect_delay = DisconnectDelay}) ->
     _ = erlang:cancel_timer(Ref),
     Ref1 = erlang:send_after(DisconnectDelay, self(), session_timeout),
-    State#session{session_timeout = Ref1}.
+    State#session{session_tref = Ref1}.
 
 emit(What, #session{callback = Callback,
                     handle = Handle}) ->
