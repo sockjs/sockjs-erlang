@@ -18,7 +18,7 @@ distclean::
 # **** serve ****
 
 .PHONY: serve
-SERVE_SCRIPT=./test_server_misultin.erl
+SERVE_SCRIPT=./examples/cowboy_test_server.erl
 serve:
 	@if [ -e .pidfile.pid ]; then			\
 		kill `cat .pidfile.pid`;		\
@@ -33,7 +33,7 @@ serve:
 			echo $$SRVPID > .pidfile.pid;	\
 			echo " [*] Pid: $$SRVPID";	\
 		); 					\
-		inotifywait -r -q -e modify src/*erl *erl src/*hrl; \
+		inotifywait -r -q -e modify src/*erl examples/*erl src/*hrl; \
 		test -e .pidfile.pid && kill `cat .pidfile.pid`; \
 		rm -f .pidfile.pid;			\
 		sleep 0.1;				\

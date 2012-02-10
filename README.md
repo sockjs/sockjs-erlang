@@ -218,14 +218,14 @@ To run Cowboy test_server:
     cd sockjs-erlang
     ./rebar -C rebar-cowboy.config get-deps
     ./rebar -C rebar-cowboy.config compile
-    ./examples/test_server_cowboy.erl
+    ./examples/cowboy_test_server.erl
 
 To run Misultin test_server:
 
     cd sockjs-erlang
     ./rebar -C rebar-misultin.config get-deps
     ./rebar -C rebar-misultin.config compile
-    ./examples/test_server_misultin.erl
+    ./examples/misultin_test_server.erl
 
 That should start test_server on port 8081. Currently, there are two
 separate test suits using test_server.
