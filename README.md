@@ -12,8 +12,17 @@ SockJS-erlang server
 [Cowboy](https://github.com/extend/cowboy) or
 [Misultin](https://github.com/ostinelli/misultin).
 
+SockJS-erlang is compatible with
+[SockJS client version 0.2](http://sockjs.github.com/sockjs-protocol/sockjs-protocol-0.2.html).
+
 See https://github.com/sockjs/sockjs-client for more information on
 SockJS.
+
+
+Show me the code!
+-----------------
+
+### Cowboy
 
 A simplistic echo SockJS server using Cowboy may look more or less
 like this:
@@ -39,6 +48,8 @@ main(_) ->
 service_echo(Conn, {recv, Data}) -> sockjs:send(Data, Conn);
 service_echo(_Conn, _)           -> ok.
 ```
+
+### Misultin
 
 And a simplistic echo SockJS server using Misultin may look more or
 less like this:
@@ -79,10 +90,34 @@ service_echo(Conn, {recv, Data}) -> sockjs:send(Data, Conn);
 service_echo(_Conn, _)           -> ok.
 ```
 
-Dig into the `examples` directory for more details:
+Dig into the `examples` directory to get working code:
 
-  * https://github.com/sockjs/sockjs-erlang/examples/simple_cowboy.erl
-  * https://github.com/sockjs/sockjs-erlang/examples/simple_misultin.erl
+  * https://github.com/sockjs/sockjs-erlang/examples/cowboy_echo.erl
+  * https://github.com/sockjs/sockjs-erlang/examples/misultin_echo.erl
+
+How to run the examples?
+------------------------
+
+You may need a recent version of Erlang/OTP, at R14B is recommended.
+
+To run Cowboy example:
+
+    cd sockjs-erlang
+    ./rebar -C rebar-cowboy.config get-deps
+    ./rebar -C rebar-cowboy.config compile
+    ./examples/cowboy_echo.erl
+
+To run Misultin example:
+
+    cd sockjs-erlang
+    ./rebar -C rebar-misultin.config get-deps
+    ./rebar -C rebar-misultin.config compile
+    ./examples/misultin_echo.erl
+
+This will start a simple `/echo` SockJS server on
+`http://localhost:8081`.  Open this link in the browser and play
+around.
+
 
 SockJS-erlang API
 -----------------
@@ -91,23 +126,56 @@ Except for the web framework-specific API's, SockJS-erlang is rather
 simple. It has just a couple of methods:
 
  * **sockjs_handler:init_state(prefix, callback, options) -> service()**
- * **sockjs:send(payload) -> ok**
- * **sockjs:close(code, reason) -> ok**
+
+    Initializes the state of a SockJS service (ie: a thing you can
+    access from the browser, it has an url and a code on the server
+    side). `prefix` is a binary that must exacty match the url prefix
+    of the service, for example, if service will be listening on
+    '/echo', this parameter must be set to `<<"/echo">>`. `callback`
+    function will be called when a new SockJS connection is
+    established, data received or a connection is closed. Options is a
+    proplist that can contain following tuples:
+
+     * `{websocket, boolean()}` - are native websockets enabled? This
+       can be usefull when your loadbalancer doesn't support them.
+     * `{cookie_needed, boolean()}` - is your load balancer relying on
+       cookies to get sticky sessions working?
+     * `{heartbeat_delay, integer()}` - how often to send heartbeat
+       packets (in ms).
+     * `{disconnect_delay, integer()}` - how long to hold session state
+       after the client was last connected (in ms).
+     * `{response_limit, integer()}` - the maximum size of a single
+       http streaming response (in bytes).
+     * `{logger, fun/3}` - a function called on every request, used
+       to print request to the logs (or on the screen by default).
+
+    For more explanation, please do take a look at
+    [SockJS-node readme](https://github.com/sockjs/sockjs-node/blob/master/README.md).
+
+ * **sockjs:send(connection, payload) -> ok**
+
+     Send data over an active SockJS connection. Payload should be of
+     iodata() type.
+
+ * **sockjs:close(connection, code, reason) -> ok**
+
+     Close an active SockJS connection with code and reason. If code
+     and reason are skipped, the defaults are used.
+
 
 The framework-specific calls are more problematic. Instead of trying
 to explain how to use them, please take a look at the examples.
 
- ** req() :: {cowboy|misultin, request} **
-
+ * **type(req() :: {cowboy|misultin, request()})**
  * **sockjs_handler:handle_req(service(), req()) -> req()**
  * **sockjs_handler:handle_ws(service(), req()) -> req()**
 
-Status
-------
+Stability
+---------
 
 SockJS-erlang is quite new, but should be reasonably stable.
 
-Cowboy is passing all the tests.
+Cowboy is passing all the [SockJS-protocol tests](https://github.com/sockjs/sockjs-protocol).
 
 Misulting is behaving well most of the time, with the exception of a
 few websockets issues:
@@ -115,22 +183,71 @@ few websockets issues:
  * https://github.com/ostinelli/misultin/issues/98
  * https://github.com/ostinelli/misultin/issues/99
 
-Development
------------
+Deployment and load balancing
+-----------------------------
 
-To run Cowboy examples:
+SockJS servers should work well behind many load balancer setups, but
+it sometimes requres some additional twaks.  For more details, please
+do take a look at the 'Deployment' section in
+[SockJS-node readme](https://github.com/sockjs/sockjs-node/blob/master/README.md).
+
+Development and testing
+-----------------------
+
+You need [`rebar`](https://github.com/basho/rebar)
+([instructions](https://github.com/basho/rebar/wiki/Building-rebar)).
+Due to a bug in rebar config handling you need a reasonably recent
+version - newer than late Oct 2011. Alternatively, SockJS-erlang is
+bundeled with a recent rebar binary.
+
+SockJS-erlang contains a `test_server` for both Cowboy and Misultin,
+which is a simple server used for testing.
+
+To run Cowboy test_server:
 
     cd sockjs-erlang
-    rebar -C rebar-cowboy.config get-deps
-    rebar -C rebar-cowboy.config compile
-    ./examples/simple_cowboy.erl
+    ./rebar -C rebar-cowboy.config get-deps
+    ./rebar -C rebar-cowboy.config compile
+    ./examples/test_server_cowboy.erl
 
-
-To run Misultin examples:
+To run Misultin test_server:
 
     cd sockjs-erlang
-    rebar -C rebar-misultin.config get-deps
-    rebar -C rebar-misultin.config compile
-    ./examples/simple_misultin.erl
+    ./rebar -C rebar-misultin.config get-deps
+    ./rebar -C rebar-misultin.config compile
+    ./examples/test_server_misultin.erl
 
-This should start a simple `/echo` server on `http://localhost:8081`.
+That should start test_server on port 8081. Currently, there are two
+separate test suits using test_server.
+
+### SockJS-protocol Python tests
+
+Once test_server is listening on `http://localhost:8081` you may test it
+using SockJS-protocol:
+
+    cd sockjs-protocol
+    make test_deps
+    ./venv/bin/python sockjs-protocol-dev.py
+
+For details see
+[SockJS-protocol README](https://github.com/sockjs/sockjs-protocol#readme).
+
+### SockJS-client QUnit tests
+
+You need to start a second web server (by default listening on 8080)
+that is serving various static html and javascript files:
+
+    cd sockjs-client
+    make test
+
+At that point you should have two web servers running: sockjs-erlang on
+8081 and sockjs-client on 8080. When you open the browser on
+[http://localhost:8080/](http://localhost:8080/) you should be able
+run the QUnit tests against your sockjs-node server.
+
+For details see
+[SockJS-client README](https://github.com/sockjs/sockjs-client#readme).
+
+Additionally, if you're doing more serious development consider using
+`make serve`, which will automatically the server when you modify the
+source code.

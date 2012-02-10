@@ -1,12 +1,14 @@
+REBAR=./rebar
+
 .PHONY: all deps clean distclean
 all: deps
-	./rebar compile
+	$(REBAR) compile
 
 deps:
-	./rebar get-deps
+	$(REBAR) get-deps
 
 clean::
-	./rebar clean
+	$(REBAR) clean
 	rm -rf priv/www
 
 distclean::
@@ -24,7 +26,7 @@ serve:
 	fi
 
 	@while [ 1 ]; do				\
-		rebar compile && (			\
+		$(REBAR) compile && (			\
 			echo " [*] Running erlang";	\
 			$(SERVE_SCRIPT) &		\
 			SRVPID=$$!;			\
@@ -66,4 +68,4 @@ dialyze: .dialyzer_sockjs.plt
 	  ebin
 
 xref:
-	./rebar xref | egrep -v unused
+	$(REBAR) xref | egrep -v unused
