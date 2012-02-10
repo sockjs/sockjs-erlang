@@ -163,7 +163,8 @@ simple. It has just a couple of methods:
  * **sockjs:send(connection, payload) -> ok**
 
      Send data over an active SockJS connection. Payload should be of
-     iodata() type.
+     iodata() type. Messages sent after connection gets closed will be
+     lost.
 
  * **sockjs:close(connection, code, reason) -> ok**
 
