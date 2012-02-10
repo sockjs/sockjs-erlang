@@ -117,18 +117,18 @@ unmark_waiting(RPid, State = #session{response_pid     = RPid,
                                       disconnect_tref  = undefined,
                                       disconnect_delay = DisconnectDelay}) ->
     unlink(RPid),
-    case HeartbeatTRef of
-        undefined -> ok;
-        triggered -> ok;
-        _Else     -> _ = erlang:cancel_timer(HeartbeatTRef)
-    end,
+    _ = case HeartbeatTRef of
+            undefined -> ok;
+            triggered -> ok;
+            _Else     -> erlang:cancel_timer(HeartbeatTRef)
+        end,
     TRef = erlang:send_after(DisconnectDelay, self(), session_timeout),
     State#session{response_pid    = undefined,
                   heartbeat_tref  = undefined,
                   disconnect_tref = TRef};
 
 %% 2) prolong disconnect timer if no connection is waiting
-unmark_waiting(RPid, State = #session{response_pid     = undefined,
+unmark_waiting(_Pid, State = #session{response_pid     = undefined,
                                       disconnect_tref  = DisconnectTRef,
                                       disconnect_delay = DisconnectDelay})
   when DisconnectTRef =/= undefined ->
