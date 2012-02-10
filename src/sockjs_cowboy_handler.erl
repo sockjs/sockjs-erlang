@@ -29,13 +29,11 @@ terminate(_Req, _Service) ->
     ok.
 
 %% --------------------------------------------------------------------------
-%% TODO: infinity as delay
 
 websocket_init(_TransportName, Req, Service = #service{logger = Logger}) ->
     Req0 = Logger(Service, {cowboy, Req}, websocket),
 
-    SessionPid = sockjs_session:maybe_create(undefined, Service#service{
-                                                          disconnect_delay=5000}),
+    SessionPid = sockjs_session:maybe_create(undefined, Service),
     {RawWebsocket, {cowboy, Req2}} =
         case sockjs_handler:get_action(Service, Req0) of
             {{match, WS}, Req1} when WS =:= websocket orelse
@@ -65,5 +63,6 @@ websocket_info(go, Req, {RawWebsocket, SessionPid} = S) ->
 websocket_info(shutdown, Req, S) ->
     {shutdown, Req, S}.
 
-websocket_terminate(_Reason, _Req, _S) ->
+websocket_terminate(_Reason, _Req, {RawWebsocket, SessionPid}) ->
+    sockjs_ws_handler:close(RawWebsocket, SessionPid),
     ok.

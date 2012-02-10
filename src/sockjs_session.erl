@@ -251,6 +251,10 @@ handle_info({'EXIT', Pid, _Reason},
     %% session.
     {stop, normal, State#session{response_pid = undefined}};
 
+handle_info(force_shutdown, State) ->
+    %% Websockets may want to force closure sometimes
+    {stop, normal, State};
+
 handle_info(session_timeout, State = #session{response_pid = undefined}) ->
     {stop, normal, State};
 

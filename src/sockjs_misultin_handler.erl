@@ -5,7 +5,6 @@
 -include("sockjs_internal.hrl").
 
 %% --------------------------------------------------------------------------
-%% TODO: infinity as delay
 
 -spec handle_ws(service(), any()) -> closed.
 handle_ws(Service = #service{logger = Logger}, Req) ->
@@ -17,10 +16,11 @@ handle_ws(Service = #service{logger = Logger}, Req) ->
                                      WS =:= rawwebsocket ->
                 {WS, Req1}
         end,
-    SessionPid = sockjs_session:maybe_create(undefined, Service#service{
-                                                          disconnect_delay=5000}),
+    SessionPid = sockjs_session:maybe_create(undefined, Service),
     self() ! go,
-    handle_ws0({Req2, RawWebsocket, SessionPid}).
+    closed = handle_ws0({Req2, RawWebsocket, SessionPid}),
+    sockjs_ws_handler:close(RawWebsocket, SessionPid),
+    closed.
 
 handle_ws0({_Req, RawWebsocket, SessionPid} = S) ->
     receive

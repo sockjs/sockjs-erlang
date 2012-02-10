@@ -1,6 +1,6 @@
 -module(sockjs_ws_handler).
 
--export([received/3, reply/2]).
+-export([received/3, reply/2, close/2]).
 
 -include("sockjs_internal.hrl").
 
@@ -47,3 +47,7 @@ reply(rawwebsocket, SessionPid) ->
             wait
     end.
 
+-spec close(websocket|rawwebsocket, pid()) -> ok.
+close(_RawWebsocket, SessionPid) ->
+    SessionPid ! force_shutdown,
+    ok.
