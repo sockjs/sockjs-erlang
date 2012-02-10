@@ -10,13 +10,10 @@ SockJS-erlang server
 
 [SockJS](http://sockjs.org) server written in Erlang. Can run with
 [Cowboy](https://github.com/extend/cowboy) or
-[Misultin](https://github.com/ostinelli/misultin).
-
-SockJS-erlang is compatible with
-[SockJS client version 0.2](http://sockjs.github.com/sockjs-protocol/sockjs-protocol-0.2.html).
-
-See https://github.com/sockjs/sockjs-client for more information on
-SockJS.
+[Misultin](https://github.com/ostinelli/misultin). SockJS-erlang is
+compatible with
+[SockJS client version 0.2](http://sockjs.github.com/sockjs-protocol/sockjs-protocol-0.2.html). See
+https://github.com/sockjs/sockjs-client for more information on SockJS.
 
 
 Show me the code!
@@ -98,7 +95,7 @@ Dig into the `examples` directory to get working code:
 How to run the examples?
 ------------------------
 
-You may need a recent version of Erlang/OTP, at R14B is recommended.
+You may need a recent version of Erlang/OTP, at least R14B is recommended.
 
 To run Cowboy example:
 
@@ -115,7 +112,7 @@ To run Misultin example:
     ./examples/misultin_echo.erl
 
 This will start a simple `/echo` SockJS server on
-`http://localhost:8081`.  Open this link in the browser and play
+`http://localhost:8081`.  Open this link in a browser and play
 around.
 
 
