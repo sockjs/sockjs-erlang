@@ -133,6 +133,17 @@ simple. It has just a couple of methods:
     established, data received or a connection is closed. Options is a
     proplist that can contain following tuples:
 
+     * `{sockjs_url, string()}` - Transports which don't support
+       cross-domain communication natively ('eventsource' to name one)
+       use an iframe trick.  A simple page is served from the SockJS
+       server (using its foreign domain) and is placed in an invisible
+       iframe. Code run from this iframe doesn't need to worry about
+       cross-domain issues, as it's being run from domain local to the
+       SockJS server. This iframe also does need to load SockJS
+       javascript client library, and this option lets you specify its
+       url (if you're unsure, point it to <a
+       href="http://cdn.sockjs.org/sockjs-0.2.min.js"> the latest
+       minified SockJS client release</a>, this is the default).
      * `{websocket, boolean()}` - are native websockets enabled? This
        can be usefull when your loadbalancer doesn't support them.
      * `{cookie_needed, boolean()}` - is your load balancer relying on

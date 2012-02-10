@@ -1,7 +1,7 @@
 
 -record(service, {prefix :: nonempty_string(),
                   callback :: callback(),
-                  url :: nonempty_string(),
+                  sockjs_url :: nonempty_string(),
                   cookie_needed :: boolean(),
                   websocket :: boolean(),
                   disconnect_delay :: non_neg_integer(),

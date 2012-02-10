@@ -56,8 +56,8 @@ options(Req, Headers, _Service) ->
     sockjs_http:reply(204, Headers, "", Req).
 
 -spec iframe(req(), headers(), service()) -> req().
-iframe(Req, Headers, #service{url = Url}) ->
-    IFrame = io_lib:format(?IFRAME, [Url]),
+iframe(Req, Headers, #service{sockjs_url = SockjsUrl}) ->
+    IFrame = io_lib:format(?IFRAME, [SockjsUrl]),
     MD5 = "\"" ++ binary_to_list(base64:encode(erlang:md5(IFrame))) ++ "\"",
     {H, Req2} = sockjs_http:header('If-None-Match', Req),
     case H of

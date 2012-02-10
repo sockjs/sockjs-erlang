@@ -6,15 +6,16 @@
 
 -include("sockjs_internal.hrl").
 
+-define(SOCKJS_URL, "http://cdn.sockjs.org/sockjs-0.2.js").
+
 %% --------------------------------------------------------------------------
 
 -spec init_state(binary(), callback(), list(tuple())) -> service().
 init_state(Prefix, Callback, Options) ->
-    Url = proplists:get_value("url", Options,
-                              "http://cdn.sockjs.org/sockjs-0.2.js"),
     #service{prefix = binary_to_list(Prefix),
              callback = Callback,
-             url = Url,
+             sockjs_url =
+                 proplists:get_value(sockjs_url, Options, ?SOCKJS_URL),
              websocket =
                  proplists:get_value(websocket, Options, true),
              cookie_needed =
