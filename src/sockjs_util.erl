@@ -46,7 +46,9 @@ encode_frame({close, {Code, Reason}}) ->
      sockjs_json:encode([Code, list_to_binary(Reason)])];
 encode_frame({data, L}) ->
     [<<"a">>,
-     sockjs_json:encode([iolist_to_binary(D) || D <- L])].
+     sockjs_json:encode([iolist_to_binary(D) || D <- L])];
+encode_frame({heartbeat, nil}) ->
+    <<"h">>.
 
 
 -spec url_escape(string(), string()) -> iolist().

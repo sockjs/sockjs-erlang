@@ -40,7 +40,8 @@ reply(rawwebsocket, SessionPid) ->
             case Frame of
                 {open, nil}               -> reply(rawwebsocket, SessionPid);
                 {close, {_Code, _Reason}} -> {close, <<>>};
-                {data, [Msg]}             -> {ok, iolist_to_binary(Msg)}
+                {data, [Msg]}             -> {ok, iolist_to_binary(Msg)};
+                {heartbeat, nil}          -> reply(rawwebsocket, SessionPid)
             end;
         wait ->
             wait

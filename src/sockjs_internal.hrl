@@ -21,4 +21,5 @@
 
 -type(frame() :: {open, nil} |
                  {close, {non_neg_integer(), string()}} |
-                 {data, list(iodata())}).
+                 {data, list(iodata())} |
+                 {heartbeat, nil} ).

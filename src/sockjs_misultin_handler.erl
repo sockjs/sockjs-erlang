@@ -5,7 +5,6 @@
 -include("sockjs_internal.hrl").
 
 %% --------------------------------------------------------------------------
-%% TODO: heartbeats
 %% TODO: infinity as delay
 
 -spec handle_ws(service(), any()) -> closed.

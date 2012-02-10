@@ -12,14 +12,16 @@
          handle_cast/2]).
 
 -record(session, {id :: session() | undefined,
-                  outbound_queue = queue:new(),
-                  response_pid,
-                  disconnect_tref,
-                  disconnect_delay,
-                  ready_state = connecting,
-                  close_msg,
+                  outbound_queue = queue:new() :: queue(),
+                  response_pid                 :: pid() | undefined,
+                  disconnect_tref              :: reference() | undefined,
+                  disconnect_delay             :: non_neg_integer(),
+                  heartbeat_tref               :: reference() | undefined | triggered,
+                  heartbeat_delay              :: non_neg_integer(),
+                  ready_state = connecting     :: connecting | open | closed,
+                  close_msg                    :: {non_neg_integer(), string()} | undefined,
                   callback,
-                  handle :: handle()}).
+                  handle                       :: handle()}).
 -define(ETS, sockjs_table).
 
 -type(handle() :: {?MODULE, {binary(), pid()}}).
@@ -91,37 +93,54 @@ spid(SessionId) ->
         [{_, SPid}] -> SPid
     end.
 
-mark_waiting(Pid, State = #session{response_pid    = undefined,
-                                   disconnect_tref = Ref}) ->
-    link(Pid),
-    _ = case Ref of
-            undefined -> ok;
-            _         -> erlang:cancel_timer(Ref)
-        end,
-    State#session{response_pid    = Pid,
-                  disconnect_tref = undefined};
+%% Mark a process as waiting for data.
+%% 1) The same process may ask for messages multiple times.
 mark_waiting(Pid, State = #session{response_pid    = Pid,
                                    disconnect_tref = undefined}) ->
-    %% The same process may ask for messages multiple times.
-    State.
+    State;
+%% 2) Noone else waiting - link and start heartbeat timeout.
+mark_waiting(Pid, State = #session{response_pid    = undefined,
+                                   disconnect_tref = DisconnectTRef,
+                                   heartbeat_delay = HeartbeatDelay})
+  when DisconnectTRef =/= undefined ->
+    link(Pid),
+    _ =  erlang:cancel_timer(DisconnectTRef),
+    TRef = erlang:send_after(HeartbeatDelay, self(), heartbeat_triggered),
+    State#session{response_pid    = Pid,
+                  disconnect_tref = undefined,
+                  heartbeat_tref  = TRef}.
 
-unmark_waiting(State = #session{response_pid     = RPid,
-                                disconnect_tref  = undefined,
-                                disconnect_delay = DisconnectDelay}) ->
-    case RPid of
+%% Prolong session lifetime.
+%% 1) Maybe clear up response_pid if already awaiting.
+unmark_waiting(RPid, State = #session{response_pid     = RPid,
+                                      heartbeat_tref   = HeartbeatTRef,
+                                      disconnect_tref  = undefined,
+                                      disconnect_delay = DisconnectDelay}) ->
+    unlink(RPid),
+    case HeartbeatTRef of
         undefined -> ok;
-        _Else ->
-            unlink(RPid)
+        triggered -> ok;
+        _Else     -> _ = erlang:cancel_timer(HeartbeatTRef)
     end,
-    Ref = erlang:send_after(DisconnectDelay, self(), session_timeout),
-    State#session{response_pid = undefined,
-                  disconnect_tref = Ref};
-unmark_waiting(State = #session{response_pid     = undefined,
-                                disconnect_tref  = Ref,
-                                disconnect_delay = DisconnectDelay}) ->
-    _ = erlang:cancel_timer(Ref),
-    Ref1 = erlang:send_after(DisconnectDelay, self(), session_timeout),
-    State#session{disconnect_tref = Ref1}.
+    TRef = erlang:send_after(DisconnectDelay, self(), session_timeout),
+    State#session{response_pid    = undefined,
+                  heartbeat_tref  = undefined,
+                  disconnect_tref = TRef};
+
+%% 2) prolong disconnect timer if no connection is waiting
+unmark_waiting(RPid, State = #session{response_pid     = undefined,
+                                      disconnect_tref  = DisconnectTRef,
+                                      disconnect_delay = DisconnectDelay})
+  when DisconnectTRef =/= undefined ->
+    _ = erlang:cancel_timer(DisconnectTRef),
+    TRef = erlang:send_after(DisconnectDelay, self(), session_timeout),
+    State#session{disconnect_tref = TRef};
+
+%% 3) Event from someone else? Ignore.
+unmark_waiting(RPid, State = #session{response_pid    = Pid,
+                                      disconnect_tref = undefined})
+  when Pid =/= undefined andalso Pid =/= RPid ->
+    State.
 
 emit(What, #session{callback = Callback,
                     handle = Handle}) ->
@@ -131,35 +150,51 @@ emit(What, #session{callback = Callback,
 
 -spec init({session_or_undefined(), service()}) -> {ok, #session{}}.
 init({SessionId, #service{callback         = Callback,
-                          disconnect_delay = DisconnectDelay}}) ->
+                          disconnect_delay = DisconnectDelay,
+                          heartbeat_delay  = HeartbeatDelay}}) ->
     case SessionId of
         undefined -> ok;
         _Else     -> ets:insert(?ETS, {SessionId, self()})
     end,
     process_flag(trap_exit, true),
-    {ok, #session{id = SessionId,
-                  callback = Callback,
+    TRef = erlang:send_after(DisconnectDelay, self(), session_timeout),
+    {ok, #session{id               = SessionId,
+                  callback         = Callback,
+                  response_pid     = undefined,
+                  disconnect_tref  = TRef,
                   disconnect_delay = DisconnectDelay,
-                  handle = {?MODULE, {sockjs_util:guid(), self()}}}}.
+                  heartbeat_tref   = undefined,
+                  heartbeat_delay  = HeartbeatDelay,
+                  handle           = {?MODULE, {sockjs_util:guid(), self()}}}}.
 
 
-handle_call({reply, _Pid, _Multiple}, _From, State = #session{
-                                               ready_state = connecting}) ->
+handle_call({reply, Pid, _Multiple}, _From, State = #session{
+                                               response_pid = undefined,
+                                               ready_state  = connecting}) ->
     emit(init, State),
-    State1 = unmark_waiting(State),
+    State1 = unmark_waiting(Pid, State),
     {reply, {ok, {open, nil}},
      State1#session{ready_state = open}};
 
-handle_call({reply, _Pid, _Multiple}, _From, State = #session{
-                                               ready_state = closed,
-                                               close_msg = CloseMsg}) ->
-    State1 = unmark_waiting(State),
+handle_call({reply, Pid, _Multiple}, _From, State = #session{
+                                              ready_state = closed,
+                                              close_msg   = CloseMsg}) ->
+    State1 = unmark_waiting(Pid, State),
     {reply, {close, {close, CloseMsg}}, State1};
 
+
+handle_call({reply, Pid, _Multiple}, _From, State = #session{
+                                             response_pid = RPid})
+  when RPid =/= Pid andalso RPid =/= undefined ->
+    %% don't use unmark_waiting(), this shouldn't touch the session lifetime
+    {reply, session_in_use, State};
+
 handle_call({reply, Pid, Multiple}, _From, State = #session{
-                                             ready_state = open,
-                                             response_pid = RPid,
-                                             outbound_queue = Q}) ->
+                                             ready_state    = open,
+                                             response_pid   = RPid,
+                                             heartbeat_tref = HeartbeatTRef,
+                                             outbound_queue = Q})
+  when RPid == undefined orelse RPid == Pid ->
     {Messages, Q1} = case Multiple of
                          true  -> {queue:to_list(Q), queue:new()};
                          false -> case queue:out(Q) of
@@ -167,17 +202,14 @@ handle_call({reply, Pid, Multiple}, _From, State = #session{
                                       {empty, Q2}        -> {[], Q2}
                                   end
                      end,
-    case {Messages, RPid} of
-        {[], P} when P =:= undefined orelse P =:= Pid ->
-            State1 = mark_waiting(Pid, State),
-            {reply, wait, State1};
-        {[], _} ->
-            %% don't use reply(), this shouldn't touch the session lifetime
-            {reply, session_in_use, State};
-        {_, _} ->
-            State1 = unmark_waiting(State),
-            {reply, {ok, {data, Messages}},
-             State1#session{outbound_queue = Q1}}
+    case {Messages, HeartbeatTRef} of
+        {[], triggered} -> State1 = unmark_waiting(Pid, State),
+                           {reply, {ok, {heartbeat, nil}}, State1};
+        {[], _TRef}     -> State1 = mark_waiting(Pid, State),
+                           {reply, wait, State1};
+        _More           -> State1 = unmark_waiting(Pid, State),
+                           {reply, {ok, {data, Messages}},
+                            State1#session{outbound_queue = Q1}}
     end;
 
 handle_call({received, Messages}, _From, State = #session{ready_state = open}) ->
@@ -221,6 +253,10 @@ handle_info({'EXIT', Pid, _Reason},
 
 handle_info(session_timeout, State = #session{response_pid = undefined}) ->
     {stop, normal, State};
+
+handle_info(heartbeat_triggered, State = #session{response_pid = RPid}) when RPid =/= undefined ->
+    RPid ! go,
+    {noreply, State#session{heartbeat_tref = triggered}};
 
 handle_info(Info, State) ->
     {stop, {odd_info, Info}, State}.

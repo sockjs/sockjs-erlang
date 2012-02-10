@@ -29,7 +29,6 @@ terminate(_Req, _Service) ->
     ok.
 
 %% --------------------------------------------------------------------------
-%% TODO: heartbeats
 %% TODO: infinity as delay
 
 websocket_init(_TransportName, Req, Service = #service{logger = Logger}) ->

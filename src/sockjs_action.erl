@@ -186,8 +186,7 @@ chunk_start(Req, Headers, ContentType) ->
     sockjs_http:chunk_start(200, [{"Content-Type", ContentType}] ++ Headers,
                             Req).
 
-reply_loop(Req, SessionId, ResponseLimit, Fmt,
-           Service = #service{heartbeat_delay = Heartbeat}) ->
+reply_loop(Req, SessionId, ResponseLimit, Fmt, Service) ->
     Req0 = sockjs_http:hook_tcp_close(Req),
     case sockjs_session:reply(SessionId) of
         wait           -> receive
@@ -215,10 +214,6 @@ reply_loop(Req, SessionId, ResponseLimit, Fmt,
                                   Req1 = sockjs_http:unhook_tcp_close(Req0),
                                   reply_loop(Req1, SessionId, ResponseLimit,
                                              Fmt, Service)
-                          after Heartbeat ->
-                                  Req2 = chunk(Req0, <<"h">>, Fmt),
-                                  reply_loop0(Req2, SessionId, ResponseLimit,
-                                              Fmt, Service)
                           end;
         session_in_use -> Frame = sockjs_util:encode_frame({close, ?STILL_OPEN}),
                           chunk_end(Req0, Frame, Fmt);
