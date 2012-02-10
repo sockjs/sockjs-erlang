@@ -187,10 +187,11 @@ SockJS-erlang is quite new, but should be reasonably stable.
 Cowboy is passing all the [SockJS-protocol tests](https://github.com/sockjs/sockjs-protocol).
 
 Misulting is behaving well most of the time, with the exception of a
-few websockets issues:
+few (mostly websocket related) issues:
 
  * https://github.com/ostinelli/misultin/issues/98
  * https://github.com/ostinelli/misultin/issues/99
+ * https://github.com/ostinelli/misultin/issues/101
 
 Deployment and load balancing
 -----------------------------
