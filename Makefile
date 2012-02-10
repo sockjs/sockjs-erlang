@@ -1,11 +1,15 @@
 REBAR=./rebar
 
-.PHONY: all deps clean distclean
+.PHONY: all clean distclean
 all: deps
 	$(REBAR) compile
 
 deps:
+	$(REBAR) -C rebar-misultin.config get-deps
+	$(REBAR) -C rebar-cowboy.config get-deps
 	$(REBAR) get-deps
+	$(REBAR) -C rebar-misultin.config compile
+	$(REBAR) -C rebar-cowboy.config compile
 
 clean::
 	$(REBAR) clean
@@ -42,7 +46,6 @@ serve:
 
 # **** dialyzer ****
 
-ERL_TOP=$(HOME)/.erlang-R15B/lib/erlang
 .dialyzer_generic.plt:
 	dialyzer					\
 		--build_plt				\
@@ -50,12 +53,15 @@ ERL_TOP=$(HOME)/.erlang-R15B/lib/erlang
 		--apps erts kernel stdlib compiler sasl os_mon mnesia \
 			tools public_key crypto ssl
 
-.dialyzer_sockjs.plt:
+.dialyzer_sockjs.plt: .dialyzer_generic.plt
 	dialyzer				\
 		--no_native			\
 		--add_to_plt			\
 		--plt .dialyzer_generic.plt	\
 		--output_plt .dialyzer_sockjs.plt -r deps/*/ebin
+
+distclean::
+	rm -f .dialyzer_sockjs.plt
 
 dialyze: .dialyzer_sockjs.plt
 	@dialyzer	 		\
@@ -67,5 +73,6 @@ dialyze: .dialyzer_sockjs.plt
 		-Wunmatched_returns	\
 	  ebin
 
+.PHONY: xref
 xref:
 	$(REBAR) xref | egrep -v unused
