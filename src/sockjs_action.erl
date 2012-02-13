@@ -276,7 +276,7 @@ websocket(Req, Headers, Service) ->
                               "\"Connection\" must be \"Upgrade\"", Req1);
         {true, true} ->
             sockjs_http:reply(400, Headers,
-                              "This WebSocket reqeust can't be handled.", Req1)
+                              "This WebSocket request can't be handled.", Req1)
     end.
 
 -spec rawwebsocket(req(), headers(), service()) -> req().

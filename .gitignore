@@ -2,3 +2,4 @@ deps/*
 ebin/*
 priv/www
 *~
+.pidfile.pid
