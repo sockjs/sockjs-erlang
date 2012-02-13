@@ -1,6 +1,6 @@
 #!/usr/bin/env escript
 %%! -smp disable +A1 +K true -pz ./ebin -pa deps/misultin/ebin -input
--module(simple_misultin).
+-module(misultin_echo).
 -mode(compile).
 
 -export([main/1]).
@@ -31,14 +31,14 @@ handle_http(Req, SockjsState) ->
         ["echo" | _T] ->
             sockjs_handler:handle_req(SockjsState, {misultin, Req});
         _Any ->
-            Req:respond(404,
-                        <<"404 - Nothing here (via sockjs-erlang fallback)\n">>)
+            {ok, Data} = file:read_file("./examples/echo.html"),
+            Req:respond(200, [{"Content-Type", "text/html"}], Data)
     end.
 
 handle_ws(Req, SockjsState) ->
     case string:tokens(Req:get(path), "/") of
         ["echo" | _T] ->
-            sockjs_misultin_handler:handle_ws(SockjsState, {misultin, Req});
+            sockjs_misultin_handler:handle_ws(SockjsState, Req);
         false ->
             %% abort any other ws request
             closed

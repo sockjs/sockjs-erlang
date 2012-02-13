@@ -1,6 +1,6 @@
 #!/usr/bin/env escript
 %%! -smp disable +A1 +K true -pz ./ebin -pa deps/cowboy/ebin -input
--module(simple_cowboy).
+-module(cowboy_echo).
 -mode(compile).
 
 -export([main/1]).
@@ -35,8 +35,9 @@ init({_Any, http}, Req, []) ->
     {ok, Req, []}.
 
 handle(Req, State) ->
-    {ok, Req1} = cowboy_http_req:reply(404, [],
-                 <<"404 - Nothing here (via sockjs-erlang fallback)\n">>, Req),
+    {ok, Data} = file:read_file("./examples/echo.html"),
+    {ok, Req1} = cowboy_http_req:reply(200, [{<<"Content-Type">>, "text/html"}],
+                                       Data, Req),
     {ok, Req1, State}.
 
 terminate(_Req, _State) ->
