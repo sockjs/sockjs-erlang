@@ -184,9 +184,13 @@ Stability
 
 SockJS-erlang is quite new, but should be reasonably stable.
 
-Cowboy is passing all the [SockJS-protocol tests](https://github.com/sockjs/sockjs-protocol).
+Cowboy is passing almost all the
+[SockJS-protocol tests](https://github.com/sockjs/sockjs-protocol). The
+one exception is described in this issue:
 
-Misulting is behaving well most of the time, with the exception of a
+ * https://github.com/extend/cowboy/issues/140
+
+Misultin is behaving well most of the time, with the exception of a
 few (mostly websocket related) issues:
 
  * https://github.com/ostinelli/misultin/issues/98
