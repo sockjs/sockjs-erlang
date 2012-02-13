@@ -79,7 +79,7 @@ handle_ws(Req, SockjsState) ->
     case string:tokens(Req:get(path), "/") of
         ["echo" | _T] ->
             sockjs_misultin_handler:handle_ws(SockjsState, Req);
-        false ->
+        _Else ->
             closed
     end.
 
