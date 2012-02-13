@@ -78,7 +78,7 @@ handle_http(Req, SockjsState) ->
 handle_ws(Req, SockjsState) ->
     case string:tokens(Req:get(path), "/") of
         ["echo" | _T] ->
-            sockjs_misultin_handler:handle_ws(SockjsState, {misultin, Req});
+            sockjs_misultin_handler:handle_ws(SockjsState, Req);
         false ->
             closed
     end.
@@ -208,7 +208,7 @@ do take a look at the 'Deployment' section in
 Development and testing
 -----------------------
 
-You need [`rebar`](https://github.com/basho/rebar)
+You need [rebar](https://github.com/basho/rebar)
 ([instructions](https://github.com/basho/rebar/wiki/Building-rebar)).
 Due to a bug in rebar config handling you need a reasonably recent
 version - newer than late Oct 2011. Alternatively, SockJS-erlang is
