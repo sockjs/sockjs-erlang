@@ -2,6 +2,7 @@
  [
   {description, "SockJS"},
   {vsn, "0.2.1"},
+  {modules, []},
   {registered, []},
   {applications, [
                   kernel,
