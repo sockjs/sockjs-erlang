@@ -6,7 +6,7 @@
 
 %% --------------------------------------------------------------------------
 
--spec handle_ws(service(), any()) -> closed.
+-spec handle_ws(service(), any()) -> normal.
 handle_ws(Service = #service{logger = Logger}, Req) ->
     Req0 = Logger(Service, {misultin, Req}, websocket),
 
@@ -20,7 +20,7 @@ handle_ws(Service = #service{logger = Logger}, Req) ->
     self() ! go,
     closed = handle_ws0({Req2, RawWebsocket, SessionPid}),
     sockjs_ws_handler:close(RawWebsocket, SessionPid),
-    closed.
+    normal.
 
 handle_ws0({_Req, RawWebsocket, SessionPid} = S) ->
     receive

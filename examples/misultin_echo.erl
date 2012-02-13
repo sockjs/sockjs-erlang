@@ -41,7 +41,7 @@ handle_ws(Req, SockjsState) ->
             sockjs_misultin_handler:handle_ws(SockjsState, Req);
         _Else ->
             %% abort any other ws request
-            closed
+            normal
     end.
 
 %% --------------------------------------------------------------------------
