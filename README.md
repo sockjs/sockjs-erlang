@@ -196,6 +196,7 @@ few (mostly websocket related) issues:
  * https://github.com/ostinelli/misultin/issues/98
  * https://github.com/ostinelli/misultin/issues/99
  * https://github.com/ostinelli/misultin/issues/101
+ * https://github.com/ostinelli/misultin/issues/102
 
 Deployment and load balancing
 -----------------------------
