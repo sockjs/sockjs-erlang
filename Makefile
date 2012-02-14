@@ -76,3 +76,9 @@ dialyze: .dialyzer_sockjs.plt
 .PHONY: xref
 xref:
 	$(REBAR) xref | egrep -v unused
+
+
+# **** release ****
+# 1. Commit
+# 2. Bump version in "src/sockjs.app.src"
+# 3. git tag -s "vx.y.z" -m "Release vx.y.z"
