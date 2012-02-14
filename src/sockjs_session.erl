@@ -21,6 +21,7 @@
                   ready_state = connecting     :: connecting | open | closed,
                   close_msg                    :: {non_neg_integer(), string()} | undefined,
                   callback,
+                  state,
                   handle                       :: handle()}).
 -define(ETS, sockjs_table).
 
@@ -142,14 +143,20 @@ unmark_waiting(RPid, State = #session{response_pid    = Pid,
   when Pid =/= undefined andalso Pid =/= RPid ->
     State.
 
-emit(What, #session{callback = Callback,
-                    handle = Handle}) ->
-    Callback(Handle, What).
+-spec emit(emittable(), #session{}) -> #session{}.
+emit(What, State = #session{callback = Callback,
+                            state    = UserState,
+                            handle   = Handle}) ->
+    case Callback(Handle, What, UserState) of
+        {ok, UserState1} -> State#session{state = UserState1};
+        ok               -> State
+    end.
 
 %% --------------------------------------------------------------------------
 
 -spec init({session_or_undefined(), service()}) -> {ok, #session{}}.
 init({SessionId, #service{callback         = Callback,
+                          state            = UserState,
                           disconnect_delay = DisconnectDelay,
                           heartbeat_delay  = HeartbeatDelay}}) ->
     case SessionId of
@@ -160,6 +167,7 @@ init({SessionId, #service{callback         = Callback,
     TRef = erlang:send_after(DisconnectDelay, self(), session_timeout),
     {ok, #session{id               = SessionId,
                   callback         = Callback,
+                  state            = UserState,
                   response_pid     = undefined,
                   disconnect_tref  = TRef,
                   disconnect_delay = DisconnectDelay,
@@ -171,8 +179,8 @@ init({SessionId, #service{callback         = Callback,
 handle_call({reply, Pid, _Multiple}, _From, State = #session{
                                                response_pid = undefined,
                                                ready_state  = connecting}) ->
-    emit(init, State),
-    State1 = unmark_waiting(Pid, State),
+    State0 = emit(init, State),
+    State1 = unmark_waiting(Pid, State0),
     {reply, {ok, {open, nil}},
      State1#session{ready_state = open}};
 
@@ -213,9 +221,10 @@ handle_call({reply, Pid, Multiple}, _From, State = #session{
     end;
 
 handle_call({received, Messages}, _From, State = #session{ready_state = open}) ->
-    _ = [ emit({recv, iolist_to_binary(Msg)}, State) ||
-            Msg <- Messages],
-    {reply, ok, State};
+    State2 = lists:foldl(fun(Msg, State1) ->
+                                 emit({recv, iolist_to_binary(Msg)}, State1)
+                         end, State, Messages),
+    {reply, ok, State2};
 
 handle_call({received, _Data}, _From, State = #session{ready_state = _Any}) ->
     {reply, error, State};
@@ -268,7 +277,7 @@ handle_info(Info, State) ->
 
 terminate(normal, State = #session{id = SessionId}) ->
     ets:delete(?ETS, SessionId),
-    emit(closed, State),
+    _ = emit(closed, State),
     ok.
 
 code_change(_OldVsn, State, _Extra) ->

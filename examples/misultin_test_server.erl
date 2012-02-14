@@ -10,16 +10,16 @@ main(_) ->
     application:start(sockjs),
 
     StateEcho = sockjs_handler:init_state(
-                  <<"/echo">>, fun service_echo/2, [{cookie_needed, true},
-                                                    {response_limit, 4096}]),
+                  <<"/echo">>, fun service_echo/3, state,
+                  [{cookie_needed, true}, {response_limit, 4096}]),
     StateClose = sockjs_handler:init_state(
-                   <<"/close">>, fun service_close/2, []),
+                   <<"/close">>, fun service_close/3, state, []),
     StateAmplify = sockjs_handler:init_state(
-                     <<"/amplify">>, fun service_amplify/2, []),
+                     <<"/amplify">>, fun service_amplify/3, state, []),
     StateBroadcast = sockjs_handler:init_state(
-                       <<"/broadcast">>, fun service_broadcast/2, []),
+                       <<"/broadcast">>, fun service_broadcast/3, state, []),
     StateDWSEcho = sockjs_handler:init_state(
-                  <<"/disabled_websocket_echo">>, fun service_echo/2,
+                  <<"/disabled_websocket_echo">>, fun service_echo/3, state,
                      [{websocket, false}]),
 
     Services = [{"echo", StateEcho},
@@ -68,22 +68,23 @@ handle_ws(Req, Services) ->
 
 %% --------------------------------------------------------------------------
 
-service_echo(Conn, {recv, Data}) -> sockjs:send(Data, Conn);
-service_echo(_Conn, _)           -> ok.
+service_echo(Conn, {recv, Data}, _State) -> sockjs:send(Data, Conn);
+service_echo(_Conn, _, _State)           -> ok.
 
-service_close(Conn, _)           -> sockjs:close(3000, "Go away!", Conn).
+service_close(Conn, _, _State) ->
+    sockjs:close(3000, "Go away!", Conn).
 
-service_amplify(Conn, {recv, Data}) ->
+service_amplify(Conn, {recv, Data}, _State) ->
     N0 = list_to_integer(binary_to_list(Data)),
     N = if N0 > 0 andalso N0 < 19 -> N0;
            true                   -> 1
         end,
     sockjs:send(list_to_binary(
                   string:copies("x", round(math:pow(2, N)))), Conn);
-service_amplify(_Conn, _) ->
+service_amplify(_Conn, _, _State) ->
     ok.
 
-service_broadcast(Conn, init) ->
+service_broadcast(Conn, init, _State) ->
     case ets:info(broadcast_table, memory) of
         undefined ->
             ets:new(broadcast_table, [public, named_table]);
@@ -92,10 +93,10 @@ service_broadcast(Conn, init) ->
     end,
     true = ets:insert(broadcast_table, {Conn}),
     ok;
-service_broadcast(Conn, closed) ->
+service_broadcast(Conn, closed, _State) ->
     true = ets:delete_object(broadcast_table, {Conn}),
     ok;
-service_broadcast(_Conn, {recv, Data}) ->
+service_broadcast(_Conn, {recv, Data}, _State) ->
     ets:foldl(fun({Conn}, _Acc) -> sockjs:send(Data, Conn) end,
               [], broadcast_table),
     ok.

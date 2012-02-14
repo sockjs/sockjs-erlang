@@ -1,6 +1,6 @@
 -module(sockjs_handler).
 
--export([init_state/3]).
+-export([init_state/4]).
 -export([is_valid_ws/2, get_action/2]).
 -export([dispatch_req/2, handle_req/2]).
 
@@ -10,10 +10,11 @@
 
 %% --------------------------------------------------------------------------
 
--spec init_state(binary(), callback(), list(tuple())) -> service().
-init_state(Prefix, Callback, Options) ->
+-spec init_state(binary(), callback(), any(), list(tuple())) -> service().
+init_state(Prefix, Callback, State, Options) ->
     #service{prefix = binary_to_list(Prefix),
              callback = Callback,
+             state = State,
              sockjs_url =
                  proplists:get_value(sockjs_url, Options, ?SOCKJS_URL),
              websocket =

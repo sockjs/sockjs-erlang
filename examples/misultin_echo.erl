@@ -11,7 +11,7 @@ main(_) ->
     application:start(sockjs),
 
     SockjsState = sockjs_handler:init_state(
-                    <<"/echo">>, fun service_echo/2, []),
+                    <<"/echo">>, fun service_echo/3, state, []),
 
     io:format(" [*] Running at http://localhost:~p~n", [Port]),
     misultin:start_link(
@@ -46,5 +46,5 @@ handle_ws(Req, SockjsState) ->
 
 %% --------------------------------------------------------------------------
 
-service_echo(Conn, {recv, Data}) -> sockjs:send(Data, Conn);
-service_echo(_Conn, _)           -> ok.
+service_echo(Conn, {recv, Data}, _State) -> sockjs:send(Data, Conn);
+service_echo(_Conn, _, _State)           -> ok.

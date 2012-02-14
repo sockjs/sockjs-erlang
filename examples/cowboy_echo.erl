@@ -15,7 +15,7 @@ main(_) ->
     application:start(cowboy),
 
     SockjsState = sockjs_handler:init_state(
-                    <<"/echo">>, fun service_echo/2, []),
+                    <<"/echo">>, fun service_echo/3, state, []),
 
     VhostRoutes = [{[<<"echo">>, '...'], sockjs_cowboy_handler, SockjsState},
                    {'_', ?MODULE, []}],
@@ -45,5 +45,5 @@ terminate(_Req, _State) ->
 
 %% --------------------------------------------------------------------------
 
-service_echo(Conn, {recv, Data}) -> sockjs:send(Data, Conn);
-service_echo(_Conn, _)           -> ok.
+service_echo(Conn, {recv, Data}, _State) -> sockjs:send(Data, Conn);
+service_echo(_Conn, _, _State)           -> ok.

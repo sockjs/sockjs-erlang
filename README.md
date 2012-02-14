@@ -30,7 +30,7 @@ main(_) ->
     application:start(cowboy),
 
     SockjsState = sockjs_handler:init_state(
-                    <<"/echo">>, fun service_echo/2, []),
+                    <<"/echo">>, fun service_echo/2, state, []),
 
     Routes = [{'_',  [{[<<"echo">>, '...'],
                        sockjs_cowboy_handler, SockjsState}]}],
@@ -42,8 +42,8 @@ main(_) ->
         _ -> ok
     end.
 
-service_echo(Conn, {recv, Data}) -> sockjs:send(Data, Conn);
-service_echo(_Conn, _)           -> ok.
+service_echo(Conn, {recv, Data}, state) -> sockjs:send(Data, Conn);
+service_echo(_Conn, _, state)           -> {ok, state}.
 ```
 
 ### Misultin
@@ -56,7 +56,7 @@ main(_) ->
     application:start(sockjs),
 
     SockjsState = sockjs_handler:init_state(
-                    <<"/echo">>, fun service_echo/2, []),
+                    <<"/echo">>, fun service_echo/2, state, []),
 
     misultin:start_link(
       [{port, 8081}, {autoexit, false}, {ws_autoexit, false},
@@ -83,8 +83,8 @@ handle_ws(Req, SockjsState) ->
             closed
     end.
 
-service_echo(Conn, {recv, Data}) -> sockjs:send(Data, Conn);
-service_echo(_Conn, _)           -> ok.
+service_echo(Conn, {recv, Data}, state) -> sockjs:send(Data, Conn);
+service_echo(_Conn, _, state)           -> {ok, state}.
 ```
 
 Dig into the `examples` directory to get working code:
@@ -122,7 +122,7 @@ SockJS-erlang API
 Except for the web framework-specific API's, SockJS-erlang is rather
 simple. It has just a couple of methods:
 
- * **sockjs_handler:init_state(prefix, callback, options) -> service()**
+ * **sockjs_handler:init_state(prefix, callback, state, options) -> service()**
 
     Initializes the state of a SockJS service (ie: a thing you can
     access from the browser, it has an url and a code on the server
@@ -130,8 +130,10 @@ simple. It has just a couple of methods:
     of the service, for example, if service will be listening on
     '/echo', this parameter must be set to `<<"/echo">>`. `callback`
     function will be called when a new SockJS connection is
-    established, data received or a connection is closed. Options is a
-    proplist that can contain following tuples:
+    established, data received or a connection is closed. The value of
+    `state` will be passed to the callback and preserved if returned
+    value has changed. Options is a proplist that can contain
+    following tuples:
 
      * `{sockjs_url, string()}` - Transports which don't support
        cross-domain communication natively ('eventsource' to name one)

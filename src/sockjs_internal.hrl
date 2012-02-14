@@ -1,6 +1,7 @@
 
 -record(service, {prefix :: nonempty_string(),
                   callback :: callback(),
+                  state :: any(),
                   sockjs_url :: nonempty_string(),
                   cookie_needed :: boolean(),
                   websocket :: boolean(),
@@ -17,7 +18,8 @@
 -type(server() :: nonempty_string()).
 -type(session() :: nonempty_string()).
 -type(user_session() :: nonempty_string()).
--type(callback() :: fun((user_session(), init|closed|{recv, binary()}) -> ok)).
+-type(emittable() :: init|closed|{recv, binary()}).
+-type(callback() :: fun((user_session(), emittable(), any()) -> ok)).
 
 -type(frame() :: {open, nil} |
                  {close, {non_neg_integer(), string()}} |
