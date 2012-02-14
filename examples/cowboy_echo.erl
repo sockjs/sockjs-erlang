@@ -1,5 +1,5 @@
 #!/usr/bin/env escript
-%%! -smp disable +A1 +K true -pz ./ebin -pa deps/cowboy/ebin -input
+%%! -smp disable +A1 +K true -pa ebin deps/cowboy/ebin -input
 -module(cowboy_echo).
 -mode(compile).
 

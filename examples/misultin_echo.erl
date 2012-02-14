@@ -1,5 +1,5 @@
 #!/usr/bin/env escript
-%%! -smp disable +A1 +K true -pz ./ebin -pa deps/misultin/ebin -input
+%%! -smp disable +A1 +K true -pa ebin deps/misultin/ebin -input
 -module(misultin_echo).
 -mode(compile).
 
