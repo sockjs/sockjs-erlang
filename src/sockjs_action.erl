@@ -73,9 +73,9 @@ info_test(Req, Headers, #service{websocket = Websocket,
                                  cookie_needed = CookieNeeded}) ->
     I = [{websocket, Websocket},
          {cookie_needed, CookieNeeded},
-         {origins, ['*:*']},
+         {origins, [<<"*:*">>]},
          {entropy, sockjs_util:rand32()}],
-    D = sockjs_json:encode(I),
+    D = sockjs_json:encode({I}),
     H = [{"Content-Type", "application/json; charset=UTF-8"}],
     sockjs_http:reply(200, H ++ Headers, D, Req).
 
