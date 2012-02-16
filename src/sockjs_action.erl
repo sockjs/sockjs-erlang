@@ -190,11 +190,6 @@ reply_loop(Req, SessionId, ResponseLimit, Fmt, Service) ->
     Req0 = sockjs_http:hook_tcp_close(Req),
     case sockjs_session:reply(SessionId) of
         wait           -> receive
-                              %% Misultin sends `closed` token when
-                              %% started with {autoexit, false} and
-                              %% set {comet, true} on a request.
-                              closed ->
-                                  Req0;
                               %% In Cowboy we need to capture async
                               %% messages from the tcp connection -
                               %% ie: {active, once}.
