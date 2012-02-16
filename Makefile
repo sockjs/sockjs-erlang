@@ -5,11 +5,7 @@ all: deps
 	$(REBAR) compile
 
 deps:
-	$(REBAR) -C rebar-misultin.config get-deps
-	$(REBAR) -C rebar-cowboy.config get-deps
 	$(REBAR) get-deps
-	$(REBAR) -C rebar-misultin.config compile
-	$(REBAR) -C rebar-cowboy.config compile
 
 clean::
 	$(REBAR) clean

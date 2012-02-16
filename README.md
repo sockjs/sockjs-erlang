@@ -59,8 +59,8 @@ You may need a recent version of Erlang/OTP, at least R14B is recommended.
 To run Cowboy example:
 
     cd sockjs-erlang
-    ./rebar -C rebar-cowboy.config get-deps
-    ./rebar -C rebar-cowboy.config compile
+    ./rebar get-deps
+    ./rebar compile
     ./examples/cowboy_echo.erl
 
 This will start a simple `/echo` SockJS server on
@@ -170,8 +170,8 @@ testing.
 To run Cowboy test_server:
 
     cd sockjs-erlang
-    ./rebar -C rebar-cowboy.config get-deps
-    ./rebar -C rebar-cowboy.config compile
+    ./rebar get-deps
+    ./rebar compile
     ./examples/cowboy_test_server.erl
 
 That should start test_server on port 8081. Currently, there are two
