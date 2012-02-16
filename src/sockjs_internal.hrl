@@ -13,7 +13,7 @@
 
 -type(service() :: #service{}).
 
--type(req() :: {cowboy, any()} | {misultin, any()}).
+-type(req() :: {cowboy, any()}).
 -type(headers() :: list({nonempty_string(), nonempty_string()})).
 -type(server() :: nonempty_string()).
 -type(session() :: nonempty_string()).
