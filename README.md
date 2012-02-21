@@ -10,7 +10,9 @@ SockJS-erlang server
 
 [SockJS](http://sockjs.org) server written in Erlang. Can run with
 [Cowboy](https://github.com/extend/cowboy) http server. SockJS-erlang
-is in core web-framework agnostic (in past it supported
+is in core web-framework agnostic (up to version
+[v0.2.1](https://github.com/sockjs/sockjs-erlang/tree/v0.2.1 ) we also
+supported
 [Misultin](https://github.com/ostinelli/misultin)). SockJS-erlang is
 compatible with
 [SockJS client version 0.2](http://sockjs.github.com/sockjs-protocol/sockjs-protocol-0.2.html). See
