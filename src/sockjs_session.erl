@@ -1,6 +1,5 @@
 -module(sockjs_session).
 
--behaviour(sockjs_sender).
 -behaviour(gen_server).
 
 -export([init/0, start_link/2]).
