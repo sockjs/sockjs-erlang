@@ -3,3 +3,5 @@ ebin/*
 priv/www
 *~
 .pidfile.pid
+.dialyzer_sockjs.plt
+.dialyzer_generic.plt
