@@ -33,15 +33,16 @@ terminate(_Req, _Service) ->
 websocket_init(_TransportName, Req, Service = #service{logger = Logger}) ->
     Req0 = Logger(Service, {cowboy, Req}, websocket),
 
-    SessionPid = sockjs_session:maybe_create(undefined, Service),
-    {RawWebsocket, {cowboy, Req2}} =
-        case sockjs_handler:get_action(Service, Req0) of
-            {{match, WS}, Req1} when WS =:= websocket orelse
+    {Info, Req1} = sockjs_handler:extract_info(Req0),
+    SessionPid = sockjs_session:maybe_create(undefined, Service, Info),
+    {RawWebsocket, {cowboy, Req3}} =
+        case sockjs_handler:get_action(Service, Req1) of
+            {{match, WS}, Req2} when WS =:= websocket orelse
                                      WS =:= rawwebsocket ->
-                {WS, Req1}
+                {WS, Req2}
         end,
     self() ! go,
-    {ok, Req2, {RawWebsocket, SessionPid}}.
+    {ok, Req3, {RawWebsocket, SessionPid}}.
 
 websocket_handle({text, Data}, Req, {RawWebsocket, SessionPid} = S) ->
     case sockjs_ws_handler:received(RawWebsocket, SessionPid, Data) of

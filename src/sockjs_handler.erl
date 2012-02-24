@@ -3,6 +3,7 @@
 -export([init_state/4]).
 -export([is_valid_ws/2, get_action/2]).
 -export([dispatch_req/2, handle_req/2]).
+-export([extract_info/1]).
 
 -include("sockjs_internal.hrl").
 
@@ -185,8 +186,9 @@ handle({match, {Type, Action, _Server, Session, Filters}}, Service, Req) ->
                         end, {[], Req}, Filters),
     case Type of
         send ->
-            _SPid = sockjs_session:maybe_create(Session, Service),
-            sockjs_action:Action(Req2, Headers, Service, Session);
+            {Info, Req3} = extract_info(Req2),
+            _SPid = sockjs_session:maybe_create(Session, Service, Info),
+            sockjs_action:Action(Req3, Headers, Service, Session);
         recv ->
             try
                 sockjs_action:Action(Req2, Headers, Service, Session)
@@ -206,3 +208,19 @@ default_logger(_Service, Req, _Type) ->
     {Method, Req2}   = sockjs_http:method(Req1),
     io:format("~s ~s~n", [Method, LongPath]),
     Req2.
+
+-spec extract_info(req()) -> {info(), req()}.
+extract_info(Req) ->
+    {Peer, Req1}    = sockjs_http:peer(Req),
+    {Path, Req2}    = sockjs_http:path(Req1),
+    {Headers, Req3} = lists:foldl(fun (H, {Acc, R0}) ->
+                                          case sockjs_http:header(H, R0) of
+                                              {undefined, R1} -> {Acc, R1};
+                                              {V, R1}         -> {[{H, V} | Acc], R1}
+                                          end
+                                  end, {[], Req2},
+                                  ['Referer', 'X-Client-Ip', 'X-Forwarded-For',
+                                   'X-Cluster-Client-Ip', 'Via', 'X-Real-Ip']),
+    {[{peername, Peer},
+      {path, Path},
+      {headers, Headers}], Req3}.

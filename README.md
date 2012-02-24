@@ -127,6 +127,18 @@ simple. It has just a couple of methods:
      Close an active SockJS connection with code and reason. If code
      and reason are skipped, the defaults are used.
 
+ * **sockjs:info(connection) -> proplist()**
+
+     Sometimes you may want to know more about the underlying
+     connection. This method returns a proplist with few attributes
+     extracted from the first HTTP/websocket request that was coming
+     to this connection. You should see:
+
+       * peername - ip address and port of the remote host
+       * path - the path used by the request that started the connection
+       * headers - a set of headers extracted from the request that
+         may be handy (don't expect to retrieve Cookie header).
+
 
 The framework-specific calls are more problematic. Instead of trying
 to explain how to use them, please take a look at the examples.

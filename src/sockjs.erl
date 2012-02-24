@@ -1,6 +1,6 @@
 -module(sockjs).
 
--export([send/2, close/1, close/3]).
+-export([send/2, close/1, close/3, info/1]).
 
 -type(conn() :: {sockjs_session, any()}).
 
@@ -17,3 +17,8 @@ close(Conn) ->
 -spec close(non_neg_integer(), string(), conn()) -> ok.
 close(Code, Reason, Conn = {sockjs_session, _}) ->
     sockjs_session:close(Code, Reason, Conn).
+
+-spec info(conn()) -> [{atom(), any()}].
+info(Conn = {sockjs_session, _}) ->
+    sockjs_session:info(Conn).
+

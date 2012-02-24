@@ -25,3 +25,5 @@
                  {close, {non_neg_integer(), string()}} |
                  {data, list(iodata())} |
                  {heartbeat, nil} ).
+
+-type(info() :: [{atom(), any()}]).

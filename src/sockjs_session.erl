@@ -2,9 +2,9 @@
 
 -behaviour(gen_server).
 
--export([init/0, start_link/2]).
--export([maybe_create/2, reply/1, reply/2, received/2]).
--export([send/2, close/3]).
+-export([init/0, start_link/3]).
+-export([maybe_create/3, reply/1, reply/2, received/2]).
+-export([send/2, close/3, info/1]).
 
 
 -export([init/1, handle_call/3, handle_info/2, terminate/2, code_change/3,
@@ -24,7 +24,7 @@
                   handle                       :: handle()}).
 -define(ETS, sockjs_table).
 
--type(handle() :: {?MODULE, pid()}).
+-type(handle() :: {?MODULE, {pid(), info()}}).
 
 -include("sockjs_internal.hrl").
 
@@ -38,15 +38,15 @@ init() ->
     _ = ets:new(?ETS, [public, named_table]),
     ok.
 
--spec start_link(session_or_undefined(), service()) -> {ok, pid()}.
-start_link(SessionId, Service) ->
-    gen_server:start_link(?MODULE, {SessionId, Service}, []).
+-spec start_link(session_or_undefined(), service(), info()) -> {ok, pid()}.
+start_link(SessionId, Service, Info) ->
+    gen_server:start_link(?MODULE, {SessionId, Service, Info}, []).
 
--spec maybe_create(session_or_undefined(), service()) -> pid().
-maybe_create(SessionId, Service) ->
+-spec maybe_create(session_or_undefined(), service(), info()) -> pid().
+maybe_create(SessionId, Service, Info) ->
     case ets:lookup(?ETS, SessionId) of
         []          -> {ok, SPid} = sockjs_session_sup:start_child(
-                                      SessionId, Service),
+                                      SessionId, Service, Info),
                        SPid;
         [{_, SPid}] -> SPid
     end.
@@ -63,14 +63,18 @@ received(Messages, SessionId) ->
     received(Messages, spid(SessionId)).
 
 -spec send(iodata(), handle()) -> ok.
-send(Data, {?MODULE, SPid}) ->
+send(Data, {?MODULE, {SPid, _}}) ->
     gen_server:cast(SPid, {send, Data}),
     ok.
 
 -spec close(non_neg_integer(), string(), handle()) -> ok.
-close(Code, Reason, {?MODULE, SPid}) ->
+close(Code, Reason, {?MODULE, {SPid, _}}) ->
     gen_server:cast(SPid, {close, Code, Reason}),
     ok.
+
+-spec info(handle()) -> info().
+info({?MODULE, {_SPid, Info}}) ->
+    Info.
 
 -spec reply(session_or_pid()) ->
                    wait | session_in_use | {ok | close, frame()}.
@@ -153,11 +157,11 @@ emit(What, State = #session{callback = Callback,
 
 %% --------------------------------------------------------------------------
 
--spec init({session_or_undefined(), service()}) -> {ok, #session{}}.
+-spec init({session_or_undefined(), service(), info()}) -> {ok, #session{}}.
 init({SessionId, #service{callback         = Callback,
                           state            = UserState,
                           disconnect_delay = DisconnectDelay,
-                          heartbeat_delay  = HeartbeatDelay}}) ->
+                          heartbeat_delay  = HeartbeatDelay}, Info}) ->
     case SessionId of
         undefined -> ok;
         _Else     -> ets:insert(?ETS, {SessionId, self()})
@@ -172,7 +176,7 @@ init({SessionId, #service{callback         = Callback,
                   disconnect_delay = DisconnectDelay,
                   heartbeat_tref   = undefined,
                   heartbeat_delay  = HeartbeatDelay,
-                  handle           = {?MODULE, self()}}}.
+                  handle           = {?MODULE, {self(), Info}}}}.
 
 
 handle_call({reply, Pid, _Multiple}, _From, State = #session{

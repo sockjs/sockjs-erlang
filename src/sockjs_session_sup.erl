@@ -2,7 +2,7 @@
 
 -behaviour(supervisor).
 
--export([start_link/0, start_child/2]).
+-export([start_link/0, start_child/3]).
 -export([init/1]).
 
 %% --------------------------------------------------------------------------
@@ -16,5 +16,5 @@ init([]) ->
           [{undefined, {sockjs_session, start_link, []},
             transient, 5000, worker, [sockjs_session]}]}}.
 
-start_child(SessionId, Service) ->
-   supervisor:start_child(?MODULE, [SessionId, Service]).
+start_child(SessionId, Service, Info) ->
+   supervisor:start_child(?MODULE, [SessionId, Service, Info]).
