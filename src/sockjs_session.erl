@@ -24,7 +24,7 @@
                   handle                       :: handle()}).
 -define(ETS, sockjs_table).
 
--type(handle() :: {?MODULE, {binary(), pid()}}).
+-type(handle() :: {?MODULE, pid()}).
 
 -include("sockjs_internal.hrl").
 
@@ -63,12 +63,12 @@ received(Messages, SessionId) ->
     received(Messages, spid(SessionId)).
 
 -spec send(iodata(), handle()) -> ok.
-send(Data, {?MODULE, {_, SPid}}) ->
+send(Data, {?MODULE, SPid}) ->
     gen_server:cast(SPid, {send, Data}),
     ok.
 
 -spec close(non_neg_integer(), string(), handle()) -> ok.
-close(Code, Reason, {?MODULE, {_, SPid}}) ->
+close(Code, Reason, {?MODULE, SPid}) ->
     gen_server:cast(SPid, {close, Code, Reason}),
     ok.
 
@@ -172,7 +172,7 @@ init({SessionId, #service{callback         = Callback,
                   disconnect_delay = DisconnectDelay,
                   heartbeat_tref   = undefined,
                   heartbeat_delay  = HeartbeatDelay,
-                  handle           = {?MODULE, {sockjs_util:guid(), self()}}}}.
+                  handle           = {?MODULE, self()}}}.
 
 
 handle_call({reply, Pid, _Multiple}, _From, State = #session{

@@ -1,7 +1,6 @@
 -module(sockjs_util).
 
 -export([rand32/0]).
--export([guid/0]).
 -export([encode_frame/1]).
 -export([url_escape/2]).
 
@@ -20,22 +19,6 @@ rand32() ->
             ok
     end,
     random:uniform(erlang:trunc(math:pow(2,32)))-1.
-
--spec guid() -> binary().
-guid() ->
-    list_to_binary(
-      safe_encode(
-        erlang:md5(
-          term_to_binary({rand32(), rand32(), rand32(), rand32()})
-         ))).
-
-safe_encode(Binary) ->
-    Base64 = base64:encode_to_string(Binary),
-    %% Replace '+' and '/' if necessary
-    lists:map(fun ($/) -> $-;
-                  ($+) -> $_;
-                  (C)  -> C
-          end, Base64).
 
 
 -spec encode_frame(frame()) -> iodata().
