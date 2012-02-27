@@ -1,7 +1,7 @@
 -module(sockjs_http).
 
 -export([path/1, method/1, body/1, body_qs/1, header/2, jsessionid/1,
-         callback/1, peer/1]).
+         callback/1, peername/1, sockname/1]).
 -export([reply/4, chunk_start/3, chunk/2, chunk_end/1]).
 -export([hook_tcp_close/1, unhook_tcp_close/1, abruptly_kill/1]).
 -include("sockjs_internal.hrl").
@@ -70,10 +70,22 @@ callback({cowboy, Req}) ->
         _         -> {binary_to_list(CB), {cowboy, Req1}}
     end.
 
--spec peer(req()) -> {{inet:ip_address(), non_neg_integer()}, req()}.
-peer({cowboy, Req}) ->
+-spec peername(req()) -> {{inet:ip_address(), non_neg_integer()}, req()}.
+peername({cowboy, Req}) ->
     {P, Req1} = cowboy_http_req:peer(Req),
     {P, {cowboy, Req1}}.
+
+-spec sockname(req()) -> {{inet:ip_address(), non_neg_integer()}, req()}.
+sockname({cowboy, Req} = R) ->
+    {ok, _T, S} = cowboy_http_req:transport(Req),
+    %% Cowboy has peername(), but doesn't have sockname() equivalent.
+    {ok, Addr} = case S of
+                     _ when is_port(S) ->
+                         inet:sockname(S);
+                     _ ->
+                         {{0,0,0,0}, 0}
+                 end,
+    {Addr, R}.
 
 %% --------------------------------------------------------------------------
 

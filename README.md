@@ -135,6 +135,7 @@ simple. It has just a couple of methods:
      to this connection. You should see:
 
        * peername - ip address and port of the remote host
+       * sockname - ip address and port of the local endpoint
        * path - the path used by the request that started the connection
        * headers - a set of headers extracted from the request that
          may be handy (don't expect to retrieve Cookie header).

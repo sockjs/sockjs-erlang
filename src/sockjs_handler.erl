@@ -211,7 +211,8 @@ default_logger(_Service, Req, _Type) ->
 
 -spec extract_info(req()) -> {info(), req()}.
 extract_info(Req) ->
-    {Peer, Req1}    = sockjs_http:peer(Req),
+    {Peer, Req0}    = sockjs_http:peername(Req),
+    {Sock, Req1}    = sockjs_http:sockname(Req0),
     {Path, Req2}    = sockjs_http:path(Req1),
     {Headers, Req3} = lists:foldl(fun (H, {Acc, R0}) ->
                                           case sockjs_http:header(H, R0) of
@@ -222,5 +223,6 @@ extract_info(Req) ->
                                   ['Referer', 'X-Client-Ip', 'X-Forwarded-For',
                                    'X-Cluster-Client-Ip', 'Via', 'X-Real-Ip']),
     {[{peername, Peer},
+      {sockname, Sock},
       {path, Path},
       {headers, Headers}], Req3}.
