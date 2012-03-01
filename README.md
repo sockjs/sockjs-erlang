@@ -44,8 +44,9 @@ main(_) ->
         _ -> ok
     end.
 
+service_echo(_Conn, init, state)        -> {ok, state};
 service_echo(Conn, {recv, Data}, state) -> sockjs:send(Data, Conn);
-service_echo(_Conn, _, state)           -> {ok, state}.
+service_echo(_Conn, closed, state)      -> {ok, state}.
 ```
 
 Dig into the `examples` directory to get working code:
