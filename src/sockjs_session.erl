@@ -150,7 +150,17 @@ unmark_waiting(RPid, State = #session{response_pid    = Pid,
 emit(What, State = #session{callback = Callback,
                             state    = UserState,
                             handle   = Handle}) ->
-    case Callback(Handle, What, UserState) of
+    R = case Callback of
+            _ when is_function(Callback) ->
+                Callback(Handle, What, UserState);
+            _ when is_atom(Callback) ->
+                case What of
+                    init         -> Callback:sockjs_init(Handle, UserState);
+                    {recv, Data} -> Callback:sockjs_handle(Handle, Data, UserState);
+                    closed       -> Callback:sockjs_terminate(Handle, UserState)
+                end
+        end,
+    case R of
         {ok, UserState1} -> State#session{state = UserState1};
         ok               -> State
     end.
