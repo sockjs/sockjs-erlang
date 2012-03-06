@@ -40,6 +40,7 @@ h_no_cache(Req, Headers) ->
 xhr_cors(Req, Headers) ->
     {OriginH, Req1} = sockjs_http:header('Origin', Req),
      Origin = case OriginH of
+                  "null"    -> "*";
                   undefined -> "*";
                   O         -> O
               end,
