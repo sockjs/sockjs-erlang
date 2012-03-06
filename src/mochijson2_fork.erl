@@ -91,6 +91,9 @@
 -define(IS_WHITESPACE(C),
         (C =:= $\s orelse C =:= $\t orelse C =:= $\r orelse C =:= $\n)).
 
+-type(decoder_option() :: any()).
+-type(handler_option() :: any()).
+
 -type(json_string() :: atom | binary()).
 -type(json_number() :: integer() | float()).
 -type(json_array() :: [json_term()]).
@@ -109,10 +112,10 @@
                   column=1,
                   state=null}).
 
+-type(utf8_option() :: boolean()).
+-type(encoder_option() :: handler_option() | utf8_option()).
 -spec encoder([encoder_option()]) -> function().
 %% @doc Create an encoder/1 with the given options.
--type(encoder_option() :: handler_option() | utf8_option()).
--type(utf8_option() :: boolean()).
 %% Emit unicode as utf8 (default - false)
 encoder(Options) ->
     State = parse_encoder_options(Options, #encoder{}),
@@ -123,8 +126,6 @@ encoder(Options) ->
 encode(Any) ->
     json_encode(Any, #encoder{}).
 
--type(decoder_option() :: any()).
--type(handler_option() :: any()).
 -spec decoder([decoder_option()]) -> function().
 %% @doc Create a decoder/1 with the given options.
 decoder(Options) ->

@@ -10,23 +10,24 @@
 -export([init/1, handle_call/3, handle_info/2, terminate/2, code_change/3,
          handle_cast/2]).
 
--record(session, {id :: session() | undefined,
-                  outbound_queue = queue:new() :: queue(),
-                  response_pid                 :: pid() | undefined,
-                  disconnect_tref              :: reference() | undefined,
-                  disconnect_delay             :: non_neg_integer(),
-                  heartbeat_tref               :: reference() | undefined | triggered,
-                  heartbeat_delay              :: non_neg_integer(),
-                  ready_state = connecting     :: connecting | open | closed,
-                  close_msg                    :: {non_neg_integer(), string()} | undefined,
-                  callback,
-                  state,
-                  handle                       :: handle()}).
--define(ETS, sockjs_table).
-
+-include("sockjs_internal.hrl").
 -type(handle() :: {?MODULE, {pid(), info()}}).
 
--include("sockjs_internal.hrl").
+-record(session, {id                           :: session(),
+                  outbound_queue = queue:new() :: queue(),
+                  response_pid                 :: pid(),
+                  disconnect_tref              :: reference(),
+                  disconnect_delay = 5000      :: non_neg_integer(),
+                  heartbeat_tref               :: reference() | triggered,
+                  heartbeat_delay = 25000      :: non_neg_integer(),
+                  ready_state = connecting     :: connecting | open | closed,
+                  close_msg                    :: {non_neg_integer(), string()},
+                  callback,
+                  state,
+                  handle                       :: handle()
+                 }).
+-define(ETS, sockjs_table).
+
 
 -type(session_or_undefined() :: session() | undefined).
 -type(session_or_pid() :: session() | pid()).
