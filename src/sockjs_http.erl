@@ -130,5 +130,5 @@ unhook_tcp_close(R = {cowboy, Req}) ->
 -spec abruptly_kill(req()) -> req().
 abruptly_kill(R = {cowboy, Req}) ->
     {ok, T, S} = cowboy_http_req:transport(Req),
-    T:shutdown(S, read_write),
+    T:close(S),
     R.
