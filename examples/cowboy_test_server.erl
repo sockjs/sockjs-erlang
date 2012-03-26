@@ -59,19 +59,20 @@ terminate(_Req, _State) ->
 
 %% --------------------------------------------------------------------------
 
-service_echo(Conn, {recv, Data}, _State) -> sockjs:send(Data, Conn);
-service_echo(_Conn, _, _State)           -> ok.
+service_echo(_Conn, init, state)        -> {ok, state};
+service_echo(Conn, {recv, Data}, state) -> Conn:send(Data);
+service_echo(_Conn, closed, state)      -> {ok, state}.
 
 service_close(Conn, _, _State) ->
-    sockjs:close(3000, "Go away!", Conn).
+    Conn:close(3000, "Go away!").
 
 service_amplify(Conn, {recv, Data}, _State) ->
     N0 = list_to_integer(binary_to_list(Data)),
     N = if N0 > 0 andalso N0 < 19 -> N0;
            true                   -> 1
         end,
-    sockjs:send(list_to_binary(
-                  string:copies("x", round(math:pow(2, N)))), Conn);
+    Conn:send(list_to_binary(
+                  string:copies("x", round(math:pow(2, N)))));
 service_amplify(_Conn, _, _State) ->
     ok.
 
@@ -88,6 +89,6 @@ service_broadcast(Conn, closed, _State) ->
     true = ets:delete_object(broadcast_table, {Conn}),
     ok;
 service_broadcast(_Conn, {recv, Data}, _State) ->
-    ets:foldl(fun({Conn}, _Acc) -> sockjs:send(Data, Conn) end,
+    ets:foldl(fun({Conn1}, _Acc) -> Conn1:send(Data) end,
               [], broadcast_table),
     ok.
