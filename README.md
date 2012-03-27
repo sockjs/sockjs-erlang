@@ -32,7 +32,7 @@ main(_) ->
     application:start(cowboy),
 
     SockjsState = sockjs_handler:init_state(
-                    <<"/echo">>, fun service_echo/2, state, []),
+                    <<"/echo">>, fun service_echo/3, state, []),
 
     Routes = [{'_',  [{[<<"echo">>, '...'],
                        sockjs_cowboy_handler, SockjsState}]}],
