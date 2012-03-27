@@ -13,5 +13,5 @@ decode(Encoded) ->
     try mochijson2_fork:decode(Encoded) of
         V -> {ok, V}
     catch
-        E -> {error, E}
+        _:E -> {error, E}
     end.
