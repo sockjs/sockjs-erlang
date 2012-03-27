@@ -117,18 +117,18 @@ simple. It has just a couple of methods:
     For more explanation, please do take a look at
     [SockJS-node readme](https://github.com/sockjs/sockjs-node/blob/master/README.md).
 
- * **connection:send(payload) -> ok**
+ * **Connection:send(payload) -> ok**
 
      Send data over an active SockJS connection. Payload should be of
      iodata() type. Messages sent after connection gets closed will be
      lost.
 
- * **connection:close(code, reason) -> ok**
+ * **Connection:close(code, reason) -> ok**
 
      Close an active SockJS connection with code and reason. If code
      and reason are skipped, the defaults are used.
 
- * **connection:info() -> proplist()**
+ * **Connection:info() -> proplist()**
 
      Sometimes you may want to know more about the underlying
      connection. This method returns a proplist with few attributes
