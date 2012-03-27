@@ -83,7 +83,7 @@ sockname({cowboy, Req} = R) ->
                      _ when is_port(S) ->
                          inet:sockname(S);
                      _ ->
-                         {{0,0,0,0}, 0}
+                         {ok, {{0,0,0,0}, 0}}
                  end,
     {Addr, R}.
 
