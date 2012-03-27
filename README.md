@@ -45,7 +45,7 @@ main(_) ->
     end.
 
 service_echo(_Conn, init, state)        -> {ok, state};
-service_echo(Conn, {recv, Data}, state) -> sockjs:send(Data, Conn);
+service_echo(Conn, {recv, Data}, state) -> Conn:send(Data);
 service_echo(_Conn, closed, state)      -> {ok, state}.
 ```
 
@@ -117,18 +117,18 @@ simple. It has just a couple of methods:
     For more explanation, please do take a look at
     [SockJS-node readme](https://github.com/sockjs/sockjs-node/blob/master/README.md).
 
- * **sockjs:send(connection, payload) -> ok**
+ * **connection:send(payload) -> ok**
 
      Send data over an active SockJS connection. Payload should be of
      iodata() type. Messages sent after connection gets closed will be
      lost.
 
- * **sockjs:close(connection, code, reason) -> ok**
+ * **connection:close(code, reason) -> ok**
 
      Close an active SockJS connection with code and reason. If code
      and reason are skipped, the defaults are used.
 
- * **sockjs:info(connection) -> proplist()**
+ * **connection:info() -> proplist()**
 
      Sometimes you may want to know more about the underlying
      connection. This method returns a proplist with few attributes
