@@ -289,7 +289,7 @@ handle_info(Info, State) ->
     {stop, {odd_info, Info}, State}.
 
 
-terminate(normal, State = #session{id = SessionId}) ->
+terminate(_, State = #session{id = SessionId}) ->
     ets:delete(?ETS, SessionId),
     _ = emit(closed, State),
     ok.
