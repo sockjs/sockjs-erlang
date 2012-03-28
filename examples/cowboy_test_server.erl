@@ -16,7 +16,7 @@ main(_) ->
 
     StateEcho = sockjs_handler:init_state(
                   <<"/echo">>, fun service_echo/3, state,
-                  [{cookie_needed, true}, {response_limit, 4096}]),
+                  [{response_limit, 4096}]),
     StateClose = sockjs_handler:init_state(
                    <<"/close">>, fun service_close/3, state, []),
     StateAmplify = sockjs_handler:init_state(
@@ -26,6 +26,9 @@ main(_) ->
     StateDWSEcho = sockjs_handler:init_state(
                   <<"/disabled_websocket_echo">>, fun service_echo/3, state,
                      [{websocket, false}]),
+    StateCNEcho = sockjs_handler:init_state(
+                    <<"/cookie_needed_echo">>, fun service_echo/3, state,
+                    [{cookie_needed, true}]),
 
     VRoutes = [{[<<"echo">>, '...'], sockjs_cowboy_handler, StateEcho},
                {[<<"close">>, '...'], sockjs_cowboy_handler, StateClose},
@@ -33,6 +36,8 @@ main(_) ->
                {[<<"broadcast">>, '...'], sockjs_cowboy_handler, StateBroadcast},
                {[<<"disabled_websocket_echo">>, '...'], sockjs_cowboy_handler,
                 StateDWSEcho},
+               {[<<"cookie_needed_echo">>, '...'], sockjs_cowboy_handler,
+                StateCNEcho},
                {'_', ?MODULE, []}],
     Routes = [{'_',  VRoutes}], % any vhost
 
