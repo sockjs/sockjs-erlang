@@ -125,7 +125,13 @@ unmark_waiting(RPid, State = #session{response_pid     = RPid,
     _ = case HeartbeatTRef of
             undefined -> ok;
             triggered -> ok;
-            _Else     -> erlang:cancel_timer(HeartbeatTRef)
+            _Else     ->
+                case erlang:cancel_timer(HeartbeatTRef) of
+                    false ->
+                         receive heartbeat_triggered -> ok
+                         after 0 -> ok end;
+                    _ -> ok
+                end
         end,
     TRef = erlang:send_after(DisconnectDelay, self(), session_timeout),
     State#session{response_pid    = undefined,
