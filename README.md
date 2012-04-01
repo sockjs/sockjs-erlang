@@ -160,13 +160,13 @@ simple. It has just a couple of methods:
     For more explanation, please do take a look at
     [SockJS-node readme](https://github.com/sockjs/sockjs-node/blob/master/README.md).
 
- * **sockjs:send(connection, payload) -> ok**
+ * **sockjs:send(payload, connection) -> ok**
 
      Send data over an active SockJS connection. Payload should be of
      iodata() type. Messages sent after connection gets closed will be
      lost.
 
- * **sockjs:close(connection, code, reason) -> ok**
+ * **sockjs:close(code, reason, connection) -> ok**
 
      Close an active SockJS connection with code and reason. If code
      and reason are skipped, the defaults are used.
