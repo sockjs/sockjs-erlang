@@ -1,0 +1,15 @@
+0.3.0
+=====
+
+ * Fixed {odd_info, heartbeat_triggered} exception (Isaev Ivan)
+ * Changes to pass sockjs-protocol-0.3
+ * Fixed sockname badmatch (Egobrain)
+ * Updated README
+ * Introduced parametrized module API (to get multiplexer working).
+ * Introduced Multiplexer example.
+ * Fixed invalid catch in sockjs_json:decode (Isaev Ivan)
+ * Bumped Cowboy version.
+ * Specs were moved around to make R13 happy
+ * Dropped milsultin support.
+ 
+ 
