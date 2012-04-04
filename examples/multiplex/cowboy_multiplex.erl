@@ -1,5 +1,5 @@
 #!/usr/bin/env escript
-%%! -smp disable +A1 +K true -pa ebin deps/cowboy/ebin -input
+%%! -pa ebin deps/cowboy/ebin -input
 -module(cowboy_multiplex).
 -mode(compile).
 
