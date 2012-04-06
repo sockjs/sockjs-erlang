@@ -28,6 +28,8 @@ init_state(Prefix, Callback, State, Options) ->
                  proplists:get_value(heartbeat_delay, Options, 25000),
              response_limit =
                  proplists:get_value(response_limit, Options, 128*1024),
+             hibernate =
+                 proplists:get_value(hibernate, Options, false),
              logger =
                  proplists:get_value(logger, Options, fun default_logger/3)
             }.

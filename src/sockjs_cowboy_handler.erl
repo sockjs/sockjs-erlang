@@ -30,7 +30,7 @@ terminate(_Req, _Service) ->
 
 %% --------------------------------------------------------------------------
 
-websocket_init(_TransportName, Req, Service = #service{logger = Logger}) ->
+websocket_init(_TransportName, Req, Service = #service{logger = Logger, hibernate = Hibernate}) ->
     Req0 = Logger(Service, {cowboy, Req}, websocket),
 
     {Info, Req1} = sockjs_handler:extract_info(Req0),
@@ -42,21 +42,35 @@ websocket_init(_TransportName, Req, Service = #service{logger = Logger}) ->
                 {WS, Req2}
         end,
     self() ! go,
-    {ok, Req3, {RawWebsocket, SessionPid}}.
+    case Hibernate of
+        true -> {ok, Req3, {RawWebsocket, SessionPid, Hibernate}, 1000, hibernate};
+        _    -> {ok, Req3, {RawWebsocket, SessionPid, Hibernate}}
+    end.
 
-websocket_handle({text, Data}, Req, {RawWebsocket, SessionPid} = S) ->
+websocket_handle({text, Data}, Req, {RawWebsocket, SessionPid, Hibernate} = S) ->
     case sockjs_ws_handler:received(RawWebsocket, SessionPid, Data) of
-        ok       -> {ok, Req, S};
+        ok       ->
+                    case Hibernate of
+                        true -> {ok, Req, S, hibernate};
+                        _ ->    {ok, Req, S}
+                    end;
         shutdown -> {shutdown, Req, S}
     end;
 websocket_handle(_Unknown, Req, S) ->
     {shutdown, Req, S}.
 
-websocket_info(go, Req, {RawWebsocket, SessionPid} = S) ->
+websocket_info(go, Req, {RawWebsocket, SessionPid, Hibernate} = S) ->
     case sockjs_ws_handler:reply(RawWebsocket, SessionPid) of
-        wait          -> {ok, Req, S};
+        wait          ->
+                         case Hibernate of
+                             true -> {ok, Req, S, hibernate};
+                             _    -> {ok, Req, S}
+                         end;
         {ok, Data}    -> self() ! go,
-                         {reply, {text, Data}, Req, S};
+                         case Hibernate of
+                             true -> {reply, {text, Data}, Req, S, hibernate};
+                             _    -> {reply, {text, Data}, Req, S}
+                         end;
         {close, <<>>} -> {shutdown, Req, S};
         {close, Data} -> self() ! shutdown,
                          {reply, {text, Data}, Req, S}
@@ -64,6 +78,6 @@ websocket_info(go, Req, {RawWebsocket, SessionPid} = S) ->
 websocket_info(shutdown, Req, S) ->
     {shutdown, Req, S}.
 
-websocket_terminate(_Reason, _Req, {RawWebsocket, SessionPid}) ->
+websocket_terminate(_Reason, _Req, {RawWebsocket, SessionPid, _Hibernate}) ->
     sockjs_ws_handler:close(RawWebsocket, SessionPid),
     ok.
