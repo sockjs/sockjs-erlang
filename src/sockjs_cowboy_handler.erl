@@ -43,7 +43,7 @@ websocket_init(_TransportName, Req, Service = #service{logger = Logger, hibernat
         end,
     self() ! go,
     case Hibernate of
-        true -> {ok, Req3, {RawWebsocket, SessionPid, Hibernate}, 1000, hibernate};
+        true -> {ok, Req3, {RawWebsocket, SessionPid, Hibernate}, hibernate};
         _    -> {ok, Req3, {RawWebsocket, SessionPid, Hibernate}}
     end.
 
