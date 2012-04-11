@@ -15,7 +15,7 @@
                   disconnect_delay :: non_neg_integer(),
                   heartbeat_delay  :: non_neg_integer(),
                   response_limit   :: non_neg_integer(),
-                  hibernate        :: boolean(),
+                  timeout          :: boolean(),
                   logger           :: logger()
                   }).
 
