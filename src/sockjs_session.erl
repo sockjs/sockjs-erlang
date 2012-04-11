@@ -93,9 +93,8 @@ reply(SessionId, Multiple) ->
 
 cancel_timer_safe(Timer, Atom) ->
     case erlang:cancel_timer(Timer) of
-        false ->
-             receive Atom -> ok
-             after 0 -> ok end;
+        false -> receive Atom -> ok
+                 after   0    -> ok end;
         _ -> ok
     end.
 
@@ -116,7 +115,7 @@ mark_waiting(Pid, State = #session{response_pid    = undefined,
                                    heartbeat_delay = HeartbeatDelay})
   when DisconnectTRef =/= undefined ->
     link(Pid),
-    cancel_timer_safe(DisconnectTRef, session_timeout),
+    _ = cancel_timer_safe(DisconnectTRef, session_timeout),
     TRef = erlang:send_after(HeartbeatDelay, self(), heartbeat_triggered),
     State#session{response_pid    = Pid,
                   disconnect_tref = undefined,
@@ -144,7 +143,7 @@ unmark_waiting(_Pid, State = #session{response_pid     = undefined,
                                       disconnect_tref  = DisconnectTRef,
                                       disconnect_delay = DisconnectDelay})
   when DisconnectTRef =/= undefined ->
-    cancel_timer_safe(DisconnectTRef, session_timeout),
+    _ = cancel_timer_safe(DisconnectTRef, session_timeout),
     TRef = erlang:send_after(DisconnectDelay, self(), session_timeout),
     State#session{disconnect_tref = TRef};
 
