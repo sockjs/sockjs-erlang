@@ -111,9 +111,9 @@ simple. It has just a couple of methods:
        after the client was last connected (in ms).
      * `{response_limit, integer()}` - the maximum size of a single
        http streaming response (in bytes).
-     * `{timeout, integer() | hibernate}` - loop timeout. infinity by
-       default. Set hibernate atom to enable hibernation that can
-       reduce memory consumption.
+     * `{hib_timeout, integer()}` - hibernate websocket process after
+       hib_timeout milliseconds of inactivity (5000 by default) to
+       reduce memory footprint. (implementation is incomplete, see #15)
      * `{logger, fun/3}` - a function called on every request, used
        to print request to the logs (or on the screen by default).
 

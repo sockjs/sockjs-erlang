@@ -28,8 +28,8 @@ init_state(Prefix, Callback, State, Options) ->
                  proplists:get_value(heartbeat_delay, Options, 25000),
              response_limit =
                  proplists:get_value(response_limit, Options, 128*1024),
-             timeout =
-                 proplists:get_value(timeout, Options, infinity),
+             hib_timeout =
+                 proplists:get_value(hib_timeout, Options, 5000),
              logger =
                  proplists:get_value(logger, Options, fun default_logger/3)
             }.

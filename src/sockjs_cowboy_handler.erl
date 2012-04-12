@@ -30,7 +30,8 @@ terminate(_Req, _Service) ->
 
 %% --------------------------------------------------------------------------
 
-websocket_init(_TransportName, Req, Service = #service{logger = Logger, timeout = Timeout}) ->
+websocket_init(_TransportName, Req,
+               Service = #service{logger = Logger, hib_timeout = HibTimeout}) ->
     Req0 = Logger(Service, {cowboy, Req}, websocket),
 
     {Info, Req1} = sockjs_handler:extract_info(Req0),
@@ -42,28 +43,40 @@ websocket_init(_TransportName, Req, Service = #service{logger = Logger, timeout 
                 {WS, Req2}
         end,
     self() ! go,
-    {ok, Req3, {RawWebsocket, SessionPid, Timeout}, Timeout}.
+    mh({ok, Req3, {RawWebsocket, SessionPid, {undefined, HibTimeout}}}).
 
-websocket_handle({text, Data}, Req, {RawWebsocket, SessionPid, Timeout} = S) ->
+websocket_handle({text, Data}, Req, {RawWebsocket, SessionPid, _HT} = S) ->
     case sockjs_ws_handler:received(RawWebsocket, SessionPid, Data) of
-        ok       -> {ok, Req, S, Timeout};
+        ok       -> mh({ok, Req, S});
         shutdown -> {shutdown, Req, S}
     end;
 websocket_handle(_Unknown, Req, S) ->
     {shutdown, Req, S}.
 
-websocket_info(go, Req, {RawWebsocket, SessionPid, Timeout} = S) ->
+websocket_info(go, Req, {RawWebsocket, SessionPid, _HT} = S) ->
     case sockjs_ws_handler:reply(RawWebsocket, SessionPid) of
-        wait          -> {ok, Req, S, Timeout};
+        wait          -> mh({ok, Req, S});
         {ok, Data}    -> self() ! go,
-                         {reply, {text, Data}, Req, S, Timeout};
+                         {reply, {text, Data}, Req, S};
         {close, <<>>} -> {shutdown, Req, S};
         {close, Data} -> self() ! shutdown,
                          {reply, {text, Data}, Req, S}
     end;
 websocket_info(shutdown, Req, S) ->
-    {shutdown, Req, S}.
+    {shutdown, Req, S};
+websocket_info(hibernate_triggered, Req, S) ->
+    {ok, Req, S, hibernate}.
 
-websocket_terminate(_Reason, _Req, {RawWebsocket, SessionPid, _Timeout}) ->
+websocket_terminate(_Reason, _Req, {RawWebsocket, SessionPid, _HT}) ->
     sockjs_ws_handler:close(RawWebsocket, SessionPid),
     ok.
+
+%% --------------------------------------------------------------------------
+
+mh({ok, Req, {RawWebsocket, SessionPid, {TRef, HibTimeout}}}) ->
+    case TRef of
+        undefined -> ok;
+        _ -> sockjs_util:cancel_send_after(TRef, hibernate_triggered)
+    end,
+    TRef2 = erlang:send_after(HibTimeout, self(), hibernate_triggered),
+    {ok, Req, {RawWebsocket, SessionPid, {TRef2, HibTimeout}}}.
