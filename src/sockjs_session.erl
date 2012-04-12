@@ -91,13 +91,6 @@ reply(SessionId, Multiple) ->
 
 %% --------------------------------------------------------------------------
 
-cancel_timer_safe(Timer, Atom) ->
-    case erlang:cancel_timer(Timer) of
-        false -> receive Atom -> ok
-                 after   0    -> ok end;
-        _ -> ok
-    end.
-
 spid(SessionId) ->
     case ets:lookup(?ETS, SessionId) of
         []          -> throw(no_session);
@@ -115,7 +108,7 @@ mark_waiting(Pid, State = #session{response_pid    = undefined,
                                    heartbeat_delay = HeartbeatDelay})
   when DisconnectTRef =/= undefined ->
     link(Pid),
-    _ = cancel_timer_safe(DisconnectTRef, session_timeout),
+    _ = sockjs_util:cancel_send_after(DisconnectTRef, session_timeout),
     TRef = erlang:send_after(HeartbeatDelay, self(), heartbeat_triggered),
     State#session{response_pid    = Pid,
                   disconnect_tref = undefined,
@@ -131,7 +124,8 @@ unmark_waiting(RPid, State = #session{response_pid     = RPid,
     _ = case HeartbeatTRef of
             undefined -> ok;
             triggered -> ok;
-            _Else     -> cancel_timer_safe(HeartbeatTRef, heartbeat_triggered)
+            _Else     -> sockjs_util:cancel_send_after(
+                           HeartbeatTRef, heartbeat_triggered)
         end,
     TRef = erlang:send_after(DisconnectDelay, self(), session_timeout),
     State#session{response_pid    = undefined,
@@ -143,7 +137,7 @@ unmark_waiting(_Pid, State = #session{response_pid     = undefined,
                                       disconnect_tref  = DisconnectTRef,
                                       disconnect_delay = DisconnectDelay})
   when DisconnectTRef =/= undefined ->
-    _ = cancel_timer_safe(DisconnectTRef, session_timeout),
+    _ = sockjs_util:cancel_send_after(DisconnectTRef, session_timeout),
     TRef = erlang:send_after(DisconnectDelay, self(), session_timeout),
     State#session{disconnect_tref = TRef};
 
