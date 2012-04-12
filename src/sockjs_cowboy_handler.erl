@@ -73,6 +73,9 @@ websocket_terminate(_Reason, _Req, {RawWebsocket, SessionPid, _HT}) ->
 
 %% --------------------------------------------------------------------------
 
+mh({ok, Req, {RawWebsocket, SessionPid, {TRef, hibernate}}}) ->
+    {ok, Req, {RawWebsocket, SessionPid, {TRef, hibernate}}, hibernate};
+
 mh({ok, Req, {RawWebsocket, SessionPid, {TRef, HibTimeout}}}) ->
     case TRef of
         undefined -> ok;
