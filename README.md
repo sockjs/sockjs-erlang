@@ -153,14 +153,8 @@ to explain how to use them, please take a look at the examples.
 Stability
 ---------
 
-SockJS-erlang is quite new, but should be reasonably stable.
-
-Cowboy is passing almost all the
-[SockJS-protocol tests](https://github.com/sockjs/sockjs-protocol). The
-one exception is described in this issue:
-
- * https://github.com/extend/cowboy/issues/140
-
+SockJS-erlang is quite new, but should be reasonably stable. Cowboy is passes all the
+[SockJS-protocol tests](https://github.com/sockjs/sockjs-protocol).
 
 Deployment and load balancing
 -----------------------------
