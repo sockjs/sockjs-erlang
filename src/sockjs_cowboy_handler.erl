@@ -1,3 +1,9 @@
+%% ***** BEGIN LICENSE BLOCK *****
+%% Copyright (c) 2011-2012 VMware, Inc.
+%%
+%% For the license see COPYING.
+%% ***** END LICENSE BLOCK *****
+
 -module(sockjs_cowboy_handler).
 -behaviour(cowboy_http_handler).
 -behaviour(cowboy_http_websocket_handler).

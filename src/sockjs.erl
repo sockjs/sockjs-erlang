@@ -1,3 +1,9 @@
+%% ***** BEGIN LICENSE BLOCK *****
+%% Copyright (c) 2011-2012 VMware, Inc.
+%%
+%% For the license see COPYING.
+%% ***** END LICENSE BLOCK *****
+
 -module(sockjs).
 
 -export([send/2, close/1, close/3, info/1]).
