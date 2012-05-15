@@ -137,10 +137,17 @@ jsonp(Req, Headers, Service, SessionId) ->
 verify_callback(Req, Success) ->
     {CB, Req1} = sockjs_http:callback(Req),
     case CB of
-        undefined ->
-            sockjs_http:reply(500, [], "\"callback\" parameter required", Req1);
+        X when X =:= undefined orelse X =:= [] ->
+            sockjs_http:reply(500, [],
+                              "\"callback\" parameter required", Req1);
         _ ->
-            Success(Req1, CB)
+            case re:run(CB, "[^a-zA-Z0-9-_.]") of
+                {match, _} ->
+                    sockjs_http:reply(500, [],
+                                      "invalid \"callback\" parameter", Req1);
+                nomatch ->
+                    Success(Req1, CB)
+            end
     end.
 
 %% --------------------------------------------------------------------------
