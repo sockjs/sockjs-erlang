@@ -3,7 +3,7 @@
 -behaviour(sockjs_service).
 
 -export([init_state/1]).
--export([sockjs_init/2, sockjs_handle/3, sockjs_terminate/2]).
+-export([sockjs_init/2, sockjs_handle/3, sockjs_terminate/2, sockjs_info/3]).
 
 -record(service, {callback, state, vconn}).
 
@@ -34,6 +34,8 @@ sockjs_terminate(_Conn, {Services, Channels}) ->
             {_Topic, Channel} <- orddict:to_list(Channels) ],
     {ok, {Services, orddict:new()}}.
 
+sockjs_info(_Conn, _Info, {_Services, _Channels} = S) ->
+    {ok, S}.
 
 action(Conn, {Type, Topic, Payload}, Service, Channels) ->
     case {Type, orddict:is_key(Topic, Channels)} of

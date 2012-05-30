@@ -6,7 +6,8 @@ behaviour_info(callbacks) ->
     [
      {sockjs_init, 2},
      {sockjs_handle, 3},
-     {sockjs_terminate, 2}
+     {sockjs_terminate, 2},
+     {sockjs_info, 3}
     ];
 
 behaviour_info(_Other) ->
