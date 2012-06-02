@@ -292,7 +292,7 @@ handle_info(heartbeat_triggered, State = #session{response_pid = RPid}) when RPi
     RPid ! go,
     {noreply, State#session{heartbeat_tref = triggered}};
 
-handle_info(Info, State = #session{ready_state = open}) ->
+handle_info(Info, State) ->
     State2 = emit({info, Info}, State),
     {noreply, State2}.
 
