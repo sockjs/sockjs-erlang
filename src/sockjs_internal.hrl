@@ -7,7 +7,7 @@
 -type(req()          :: {cowboy, any()}).
 
 -type(user_session() :: nonempty_string()).
--type(emittable()    :: init|closed|{recv, binary()}).
+-type(emittable()    :: init|closed|{recv, binary()},{info, any()}).
 -type(callback()     :: fun((user_session(), emittable(), any()) -> ok)).
 -type(logger()       :: fun((any(), req(), websocket|http) -> req())).
 
