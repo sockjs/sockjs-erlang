@@ -50,7 +50,7 @@ header(K, {cowboy, Req})->
     {H, Req2} = cowboy_http_req:header(K, Req),
     {V, Req3} = case H of
                     undefined ->
-                        cowboy_http_req:header(atom_to_binary(K, utf8), Req2);
+                        cowboy_http_req:header(list_to_binary(atom_to_list(K)), Req2);
                     _ -> {H, Req2}
                 end,
     case V of
