@@ -30,9 +30,6 @@
 -type(server()  :: nonempty_string()).
 -type(session() :: nonempty_string()).
 
--type(frame()   :: {open, nil} |
-                   {close, {non_neg_integer(), string()}} |
-                   {data, list(iodata())} |
-                   {heartbeat, nil} ).
+-type(frame()   :: {open, nil} | {close, {non_neg_integer(), string()}} | {data, list(iodata())} | {heartbeat, nil} ).
 
 -type(info()    :: [{atom(), any()}]).

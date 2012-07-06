@@ -100,8 +100,7 @@
 -type(json_object() :: {struct, [{json_string(), json_term()}]}).
 -type(json_eep18_object() :: {[{json_string(), json_term()}]}).
 -type(json_iolist() :: {json, iolist()}).
--type(json_term() :: json_string() | json_number() | json_array() |
-                    json_object() | json_eep18_object() | json_iolist()).
+-type(json_term() :: json_string() | json_number() | json_array() | json_object() | json_eep18_object() | json_iolist()).
 
 -record(encoder, {handler=null,
                   utf8=false}).

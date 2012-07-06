@@ -101,11 +101,7 @@ strip_prefix(LongPath, Prefix) ->
     end.
 
 
--type(dispatch_result() ::
-        nomatch |
-        {match, {send | recv | none , atom(),
-                 server(), session(), list(atom())}} |
-        {bad_method, list(atom())}).
+-type(dispatch_result() :: nomatch | {match, {send | recv | none , atom(), server(), session(), list(atom())}} | {bad_method, list(atom())}).
 
 -spec dispatch_req(service(), req()) -> {dispatch_result(), req()}.
 dispatch_req(#service{prefix = Prefix}, Req) ->
