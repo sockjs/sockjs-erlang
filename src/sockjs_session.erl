@@ -83,13 +83,11 @@ close(Code, Reason, {?MODULE, {SPid, _}}) ->
 info({?MODULE, {_SPid, Info}}) ->
     Info.
 
--spec reply(session_or_pid()) ->
-                   wait | session_in_use | {ok | close, frame()}.
+-spec reply(session_or_pid()) -> wait | session_in_use | {ok | close, frame()}.
 reply(Session) ->
     reply(Session, true).
 
--spec reply(session_or_pid(), boolean()) ->
-                   wait | session_in_use | {ok | close, frame()}.
+-spec reply(session_or_pid(), boolean()) -> wait | session_in_use | {ok | close, frame()}.
 reply(SessionPid, Multiple) when is_pid(SessionPid) ->
     gen_server:call(SessionPid, {reply, self(), Multiple}, infinity);
 reply(SessionId, Multiple) ->
