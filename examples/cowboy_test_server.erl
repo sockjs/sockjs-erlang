@@ -42,9 +42,9 @@ main(_) ->
     Routes = [{'_',  VRoutes}], % any vhost
 
     io:format(" [*] Running at http://localhost:~p~n", [Port]),
-    cowboy:start_listener(http, 100,
-                          cowboy_tcp_transport, [{port,     Port}],
-                          cowboy_http_protocol, [{dispatch, Routes}]),
+    {ok, _} = cowboy:start_listener(http, 100,
+                                    cowboy_tcp_transport, [{port,     Port}],
+                                    cowboy_http_protocol, [{dispatch, Routes}]),
     receive
         _ -> ok
     end.
