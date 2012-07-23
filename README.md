@@ -15,7 +15,7 @@ is in core web-framework agnostic (up to version
 supported
 [Misultin](https://github.com/ostinelli/misultin)). SockJS-erlang is
 compatible with
-[SockJS client version 0.2](http://sockjs.github.com/sockjs-protocol/sockjs-protocol-0.2.html). See
+[SockJS client version 0.3](http://sockjs.github.com/sockjs-protocol/sockjs-protocol-0.3.html). See
 https://github.com/sockjs/sockjs-client for more information on
 SockJS.
 
