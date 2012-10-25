@@ -1,5 +1,5 @@
 #!/usr/bin/env escript
-%%! -smp disable +A1 +K true -pa ebin deps/cowboy/ebin -input
+%%! -smp disable +A1 +K true -pa ebin -env ERL_LIBS deps -input
 -module(cowboy_test_server).
 -mode(compile).
 
@@ -11,8 +11,10 @@
 
 main(_) ->
     Port = 8081,
-    application:start(sockjs),
-    application:start(cowboy),
+    ok = application:start(sockjs),
+    ok = application:start(ranch),
+    ok = application:start(crypto),    
+    ok = application:start(cowboy),
 
     StateEcho = sockjs_handler:init_state(
                   <<"/echo">>, fun service_echo/3, state,
@@ -30,21 +32,23 @@ main(_) ->
                     <<"/cookie_needed_echo">>, fun service_echo/3, state,
                     [{cookie_needed, true}]),
 
-    VRoutes = [{[<<"echo">>, '...'], sockjs_cowboy_handler, StateEcho},
-               {[<<"close">>, '...'], sockjs_cowboy_handler, StateClose},
-               {[<<"amplify">>, '...'], sockjs_cowboy_handler, StateAmplify},
-               {[<<"broadcast">>, '...'], sockjs_cowboy_handler, StateBroadcast},
-               {[<<"disabled_websocket_echo">>, '...'], sockjs_cowboy_handler,
+    VRoutes = [{<<"/echo/[...]">>, sockjs_cowboy_handler, StateEcho},
+               {<<"/close/[...]">>, sockjs_cowboy_handler, StateClose},
+               {<<"/amplify/[...]">>, sockjs_cowboy_handler, StateAmplify},
+               {<<"/broadcast/[...]">>, sockjs_cowboy_handler, StateBroadcast},
+               {<<"/disabled_websocket_echo/[...]">>, sockjs_cowboy_handler,
                 StateDWSEcho},
-               {[<<"cookie_needed_echo">>, '...'], sockjs_cowboy_handler,
+               {<<"/cookie_needed_echo/[...]">>, sockjs_cowboy_handler,
                 StateCNEcho},
                {'_', ?MODULE, []}],
     Routes = [{'_',  VRoutes}], % any vhost
+    Dispatch = cowboy_router:compile(Routes),
 
     io:format(" [*] Running at http://localhost:~p~n", [Port]),
-    cowboy:start_listener(http, 100,
-                          cowboy_tcp_transport, [{port,     Port}],
-                          cowboy_http_protocol, [{dispatch, Routes}]),
+
+    cowboy:start_http(cowboy_test_server_http_listener, 100, 
+                      [{port, Port}],
+                      [{env, [{dispatch, Dispatch}]}]),
     receive
         _ -> ok
     end.
@@ -55,7 +59,7 @@ init({_Any, http}, Req, []) ->
     {ok, Req, []}.
 
 handle(Req, State) ->
-    {ok, Req2} = cowboy_http_req:reply(404, [],
+    {ok, Req2} = cowboy_req:reply(404, [],
                  <<"404 - Nothing here (via sockjs-erlang fallback)\n">>, Req),
     {ok, Req2, State}.
 

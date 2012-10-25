@@ -9,23 +9,36 @@
 %% --------------------------------------------------------------------------
 
 -spec path(req()) -> {string(), req()}.
-path({cowboy, Req})       -> {Path, Req1} = cowboy_http_req:raw_path(Req),
+path({cowboy, Req})       -> {Path, Req1} = cowboy_req:path(Req),
                              {binary_to_list(Path), {cowboy, Req1}}.
 
 -spec method(req()) -> {atom(), req()}.
-method({cowboy, Req})       -> {Method, Req1} = cowboy_http_req:method(Req),
-                               case is_binary(Method) of
-                                   true  -> {binary_to_atom(Method, utf8), {cowboy, Req1}};
-                                   false -> {Method, {cowboy, Req1}}
-                               end.
+method({cowboy, Req})       -> {Method, Req1} = cowboy_req:method(Req),
+                               {method_atom(Method), {cowboy, Req1}}.
+
+-spec method_atom(binary() | atom()) -> atom().
+method_atom(<<"GET">>) -> 'GET';
+method_atom(<<"PUT">>) -> 'PUT';
+method_atom(<<"POST">>) -> 'POST';
+method_atom(<<"DELETE">>) -> 'DELETE';
+method_atom(<<"OPTIONS">>) -> 'OPTIONS';
+method_atom(<<"PATCH">>) -> 'PATCH';
+method_atom(<<"HEAD">>) -> 'HEAD';
+method_atom('GET') -> 'GET';
+method_atom('PUT') -> 'PUT';
+method_atom('POST') -> 'POST';
+method_atom('DELETE') -> 'DELETE';
+method_atom('OPTIONS') -> 'OPTIONS';
+method_atom('PATCH') -> 'PATCH';
+method_atom('HEAD') -> 'HEAD'.
 
 -spec body(req()) -> {binary(), req()}.
-body({cowboy, Req})       -> {ok, Body, Req1} = cowboy_http_req:body(Req),
+body({cowboy, Req})       -> {ok, Body, Req1} = cowboy_req:body(Req),
                              {Body, {cowboy, Req1}}.
 
 -spec body_qs(req()) -> {binary(), req()}.
 body_qs(Req) ->
-    {H, Req1} =  header('Content-Type', Req),
+    {H, Req1} =  header('content-type', Req),
     case H of
         H when H =:= "text/plain" orelse H =:= "" ->
             body(Req1);
@@ -34,7 +47,7 @@ body_qs(Req) ->
             body_qs2(Req1)
     end.
 body_qs2({cowboy, Req}) ->
-    {BodyQS, Req1} = cowboy_http_req:body_qs(Req),
+    {ok, BodyQS, Req1} = cowboy_req:body_qs(Req),
     case proplists:get_value(<<"d">>, BodyQS) of
         undefined ->
             {<<>>, {cowboy, Req1}};
@@ -44,10 +57,10 @@ body_qs2({cowboy, Req}) ->
 
 -spec header(atom(), req()) -> {nonempty_string() | undefined, req()}.
 header(K, {cowboy, Req})->
-    {H, Req2} = cowboy_http_req:header(K, Req),
+    {H, Req2} = cowboy_req:header(K, Req),
     {V, Req3} = case H of
                     undefined ->
-                        cowboy_http_req:header(atom_to_binary(K, utf8), Req2);
+                        cowboy_req:header(atom_to_binary(K, utf8), Req2);
                     _ -> {H, Req2}
                 end,
     case V of
@@ -57,7 +70,7 @@ header(K, {cowboy, Req})->
 
 -spec jsessionid(req()) -> {nonempty_string() | undefined, req()}.
 jsessionid({cowboy, Req}) ->
-    {C, Req2} = cowboy_http_req:cookie(<<"JSESSIONID">>, Req),
+    {C, Req2} = cowboy_req:cookie(<<"jsessionid">>, Req),
     case C of
         _ when is_binary(C) ->
             {binary_to_list(C), {cowboy, Req2}};
@@ -67,7 +80,7 @@ jsessionid({cowboy, Req}) ->
 
 -spec callback(req()) -> {nonempty_string() | undefined, req()}.
 callback({cowboy, Req}) ->
-    {CB, Req1} = cowboy_http_req:qs_val(<<"c">>, Req),
+    {CB, Req1} = cowboy_req:qs_val(<<"c">>, Req),
     case CB of
         undefined -> {undefined, {cowboy, Req1}};
         _         -> {binary_to_list(CB), {cowboy, Req1}}
@@ -75,19 +88,12 @@ callback({cowboy, Req}) ->
 
 -spec peername(req()) -> {{inet:ip_address(), non_neg_integer()}, req()}.
 peername({cowboy, Req}) ->
-    {P, Req1} = cowboy_http_req:peer(Req),
+    {P, Req1} = cowboy_req:peer(Req),
     {P, {cowboy, Req1}}.
 
 -spec sockname(req()) -> {{inet:ip_address(), non_neg_integer()}, req()}.
 sockname({cowboy, Req} = R) ->
-    {ok, _T, S} = cowboy_http_req:transport(Req),
-    %% Cowboy has peername(), but doesn't have sockname() equivalent.
-    {ok, Addr} = case S of
-                     _ when is_port(S) ->
-                         inet:sockname(S);
-                     _ ->
-                         {ok, {{0,0,0,0}, 0}}
-                 end,
+    {Addr, _Req} = cowboy_req:peer(Req),
     {Addr, R}.
 
 %% --------------------------------------------------------------------------
@@ -95,17 +101,17 @@ sockname({cowboy, Req} = R) ->
 -spec reply(non_neg_integer(), headers(), iodata(), req()) -> req().
 reply(Code, Headers, Body, {cowboy, Req}) ->
     Body1 = iolist_to_binary(Body),
-    {ok, Req1} = cowboy_http_req:reply(Code, enbinary(Headers), Body1, Req),
+    {ok, Req1} = cowboy_req:reply(Code, enbinary(Headers), Body1, Req),
     {cowboy, Req1}.
 
 -spec chunk_start(non_neg_integer(), headers(), req()) -> req().
 chunk_start(Code, Headers, {cowboy, Req}) ->
-    {ok, Req1} = cowboy_http_req:chunked_reply(Code, enbinary(Headers), Req),
+    {ok, Req1} = cowboy_req:chunked_reply(Code, enbinary(Headers), Req),
     {cowboy, Req1}.
 
 -spec chunk(iodata(), req()) -> {ok | error, req()}.
 chunk(Chunk, {cowboy, Req} = R) ->
-    case cowboy_http_req:chunk(Chunk, Req) of
+    case cowboy_req:chunk(Chunk, Req) of
         ok          -> {ok, R};
         {error, _E} -> {error, R}
                       %% This shouldn't happen too often, usually we
@@ -120,18 +126,18 @@ enbinary(L) -> [{list_to_binary(K), list_to_binary(V)} || {K, V} <- L].
 
 -spec hook_tcp_close(req()) -> req().
 hook_tcp_close(R = {cowboy, Req}) ->
-    {ok, T, S} = cowboy_http_req:transport(Req),
+    [T, S] = cowboy_req:get([transport, socket], Req),
     T:setopts(S,[{active,once}]),
     R.
 
 -spec unhook_tcp_close(req()) -> req().
 unhook_tcp_close(R = {cowboy, Req}) ->
-    {ok, T, S} = cowboy_http_req:transport(Req),
+    [T, S] = cowboy_req:get([transport, socket], Req),
     T:setopts(S,[{active,false}]),
     R.
 
 -spec abruptly_kill(req()) -> req().
 abruptly_kill(R = {cowboy, Req}) ->
-    {ok, T, S} = cowboy_http_req:transport(Req),
-    T:close(S),
+    [T, S] = cowboy_req:get([transport, socket], Req),
+    ok = T:close(S),
     R.
