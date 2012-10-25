@@ -1,5 +1,5 @@
 #!/usr/bin/env escript
-%%! -smp disable +A1 +K true -pa ebin deps/cowboy/ebin -input
+%%! -smp disable +A1 +K true -pa ebin -env ERL_LIBS deps -input
 -module(cowboy_echo).
 -mode(compile).
 
@@ -11,8 +11,10 @@
 
 main(_) ->
     Port = 8081,
-    application:start(sockjs),
-    application:start(cowboy),
+    ok = application:start(sockjs),
+    ok = application:start(ranch),
+    ok = application:start(crypto),
+    ok = application:start(cowboy),
 
     SockjsState = sockjs_handler:init_state(
                     <<"/echo">>, fun service_echo/3, state, []),
@@ -22,9 +24,9 @@ main(_) ->
     Routes = [{'_',  VhostRoutes}], % any vhost
 
     io:format(" [*] Running at http://localhost:~p~n", [Port]),
-    cowboy:start_listener(http, 100,
-                          cowboy_tcp_transport, [{port,     Port}],
-                          cowboy_http_protocol, [{dispatch, Routes}]),
+    cowboy:start_http(cowboy_echo_http_listener, 100, 
+                      [{port, Port}],
+                      [{dispatch, Routes}]),
     receive
         _ -> ok
     end.
@@ -36,7 +38,7 @@ init({_Any, http}, Req, []) ->
 
 handle(Req, State) ->
     {ok, Data} = file:read_file("./examples/echo.html"),
-    {ok, Req1} = cowboy_http_req:reply(200, [{<<"Content-Type">>, "text/html"}],
+    {ok, Req1} = cowboy_req:reply(200, [{<<"Content-Type">>, "text/html"}],
                                        Data, Req),
     {ok, Req1, State}.
 

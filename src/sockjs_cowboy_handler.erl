@@ -1,6 +1,6 @@
 -module(sockjs_cowboy_handler).
 -behaviour(cowboy_http_handler).
--behaviour(cowboy_http_websocket_handler).
+-behaviour(cowboy_websocket_handler).
 
 %% Cowboy http callbacks
 -export([init/3, handle/2, terminate/2]).
@@ -16,7 +16,7 @@
 init({_Any, http}, Req, Service) ->
     case sockjs_handler:is_valid_ws(Service, {cowboy, Req}) of
         {true, {cowboy, _Req1}, _Reason} ->
-            {upgrade, protocol, cowboy_http_websocket};
+            {upgrade, protocol, cowboy_websocket};
         {false, {cowboy, Req1}, _Reason} ->
             {ok, Req1, Service}
     end.
