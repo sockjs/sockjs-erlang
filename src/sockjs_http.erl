@@ -23,12 +23,14 @@ method_atom(<<"POST">>) -> 'POST';
 method_atom(<<"DELETE">>) -> 'DELETE';
 method_atom(<<"OPTIONS">>) -> 'OPTIONS';
 method_atom(<<"PATCH">>) -> 'PATCH';
+method_atom(<<"HEAD">>) -> 'HEAD';
 method_atom('GET') -> 'GET';
 method_atom('PUT') -> 'PUT';
 method_atom('POST') -> 'POST';
 method_atom('DELETE') -> 'DELETE';
 method_atom('OPTIONS') -> 'OPTIONS';
-method_atom('PATCH') -> 'PATCH'.
+method_atom('PATCH') -> 'PATCH';
+method_atom('HEAD') -> 'HEAD'.
 
 -spec body(req()) -> {binary(), req()}.
 body({cowboy, Req})       -> {ok, Body, Req1} = cowboy_req:body(Req),
