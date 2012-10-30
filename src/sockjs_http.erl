@@ -20,7 +20,10 @@ path({cowboy, Req})       -> {Path, Req1} = cowboy_http_req:raw_path(Req),
 
 -spec method(req()) -> {atom(), req()}.
 method({cowboy, Req})       -> {Method, Req1} = cowboy_http_req:method(Req),
-                               {Method, {cowboy, Req1}}.
+                               case is_binary(Method) of
+                                   true  -> {binary_to_atom(Method, utf8), {cowboy, Req1}};
+                                   false -> {Method, {cowboy, Req1}}
+                               end.
 
 -spec body(req()) -> {binary(), req()}.
 body({cowboy, Req})       -> {ok, Body, Req1} = cowboy_http_req:body(Req),
