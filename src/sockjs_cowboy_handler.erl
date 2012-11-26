@@ -33,8 +33,10 @@ terminate(_Req, _Service) ->
 websocket_init(_TransportName, Req, Service = #service{logger = Logger}) ->
     Req0 = Logger(Service, {cowboy, Req}, websocket),
 
+    Service1 = Service#service{disconnect_delay = 5*60*1000},
+
     {Info, Req1} = sockjs_handler:extract_info(Req0),
-    SessionPid = sockjs_session:maybe_create(undefined, Service, Info),
+    SessionPid = sockjs_session:maybe_create(undefined, Service1, Info),
     {RawWebsocket, {cowboy, Req3}} =
         case sockjs_handler:get_action(Service, Req1) of
             {{match, WS}, Req2} when WS =:= websocket orelse
