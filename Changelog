@@ -1,3 +1,12 @@
+0.3.4
+=====
+
+ * #41 - fix a traceback when websocket is too slow or too
+   busy to prompty process incoming and outgoing data
+ * #37 - make porting to new cowboy a tiny bit easier
+   (allow 'method' to be a binary)
+
+
 0.3.3
 =====
 
