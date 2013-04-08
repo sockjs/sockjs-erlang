@@ -3,7 +3,7 @@
 -behaviour(cowboy_websocket_handler).
 
 %% Cowboy http callbacks
--export([init/3, handle/2, terminate/2]).
+-export([init/3, handle/2, terminate/3]).
 
 %% Cowboy ws callbacks
 -export([websocket_init/3, websocket_handle/3,
@@ -25,7 +25,7 @@ handle(Req, Service) ->
     {cowboy, Req3} = sockjs_handler:handle_req(Service, {cowboy, Req}),
     {ok, Req3, Service}.
 
-terminate(_Req, _Service) ->
+terminate(_Reason, _Req, _Service) ->
     ok.
 
 %% --------------------------------------------------------------------------
