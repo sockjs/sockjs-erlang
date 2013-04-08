@@ -32,22 +32,23 @@ main(_) ->
                     <<"/cookie_needed_echo">>, fun service_echo/3, state,
                     [{cookie_needed, true}]),
 
-    VRoutes = [{[<<"echo">>, '...'], sockjs_cowboy_handler, StateEcho},
-               {[<<"close">>, '...'], sockjs_cowboy_handler, StateClose},
-               {[<<"amplify">>, '...'], sockjs_cowboy_handler, StateAmplify},
-               {[<<"broadcast">>, '...'], sockjs_cowboy_handler, StateBroadcast},
-               {[<<"disabled_websocket_echo">>, '...'], sockjs_cowboy_handler,
+    VRoutes = [{<<"/echo/[...]">>, sockjs_cowboy_handler, StateEcho},
+               {<<"/close/[...]">>, sockjs_cowboy_handler, StateClose},
+               {<<"/amplify/[...]">>, sockjs_cowboy_handler, StateAmplify},
+               {<<"/broadcast/[...]">>, sockjs_cowboy_handler, StateBroadcast},
+               {<<"/disabled_websocket_echo/[...]">>, sockjs_cowboy_handler,
                 StateDWSEcho},
-               {[<<"cookie_needed_echo">>, '...'], sockjs_cowboy_handler,
+               {<<"/cookie_needed_echo/[...]">>, sockjs_cowboy_handler,
                 StateCNEcho},
                {'_', ?MODULE, []}],
     Routes = [{'_',  VRoutes}], % any vhost
+    Dispatch = cowboy_router:compile(Routes),
 
     io:format(" [*] Running at http://localhost:~p~n", [Port]),
 
     cowboy:start_http(cowboy_test_server_http_listener, 100, 
                       [{port, Port}],
-                      [{dispatch, Routes}]),
+                      [{env, [{dispatch, Dispatch}]}]),
     receive
         _ -> ok
     end.
