@@ -70,7 +70,7 @@ header(K, {cowboy, Req})->
 
 -spec jsessionid(req()) -> {nonempty_string() | undefined, req()}.
 jsessionid({cowboy, Req}) ->
-    {C, Req2} = cowboy_req:cookie(<<"JSESSIONID">>, Req),
+    {C, Req2} = cowboy_req:cookie(<<"jsessionid">>, Req),
     case C of
         _ when is_binary(C) ->
             {binary_to_list(C), {cowboy, Req2}};
