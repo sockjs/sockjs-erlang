@@ -28,25 +28,29 @@ like this:
 
 ```erlang
 main(_) ->
-    application:start(sockjs),
-    application:start(cowboy),
+    ok = application:start(sockjs),
+    ok = application:start(ranch),
+    ok = application:start(crypto),
+    ok = application:start(cowboy),
 
     SockjsState = sockjs_handler:init_state(
                     <<"/echo">>, fun service_echo/3, state, []),
 
-    Routes = [{'_',  [{[<<"echo">>, '...'],
+    Routes = [{'_',  [{<<"/echo/[...]">>,
                        sockjs_cowboy_handler, SockjsState}]}],
+    Dispatch = cowboy_router:compile(Routes),
 
-    cowboy:start_listener(http, 100,
-                          cowboy_tcp_transport, [{port,     8081}],
-                          cowboy_http_protocol, [{dispatch, Routes}]),
+    cowboy:start_http(cowboy_test_http_listener, 100,
+                      [{port, 8081}],
+                      [{env, [{dispatch, Dispatch}]}]),
     receive
         _ -> ok
     end.
 
-service_echo(_Conn, init, state)        -> {ok, state};
-service_echo(Conn, {recv, Data}, state) -> Conn:send(Data);
-service_echo(_Conn, closed, state)      -> {ok, state}.
+service_echo(_Conn, init, state)          -> {ok, state};
+service_echo(Conn, {recv, Data}, state)   -> Conn:send(Data);
+service_echo(_Conn, {info, _Info}, state) -> {ok, state};
+service_echo(_Conn, closed, state)        -> {ok, state}.
 ```
 
 Dig into the `examples` directory to get working code:

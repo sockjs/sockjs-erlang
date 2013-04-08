@@ -70,7 +70,7 @@ header(K, {cowboy, Req})->
 
 -spec jsessionid(req()) -> {nonempty_string() | undefined, req()}.
 jsessionid({cowboy, Req}) ->
-    {C, Req2} = cowboy_req:cookie(<<"JSESSIONID">>, Req),
+    {C, Req2} = cowboy_req:cookie(<<"jsessionid">>, Req),
     case C of
         _ when is_binary(C) ->
             {binary_to_list(C), {cowboy, Req2}};
@@ -93,14 +93,7 @@ peername({cowboy, Req}) ->
 
 -spec sockname(req()) -> {{inet:ip_address(), non_neg_integer()}, req()}.
 sockname({cowboy, Req} = R) ->
-    {ok, _T, S} = cowboy_req:transport(Req),
-    %% Cowboy has peername(), but doesn't have sockname() equivalent.
-    {ok, Addr} = case S of
-                     _ when is_port(S) ->
-                         inet:sockname(S);
-                     _ ->
-                         {ok, {{0,0,0,0}, 0}}
-                 end,
+    {Addr, _Req} = cowboy_req:peer(Req),
     {Addr, R}.
 
 %% --------------------------------------------------------------------------
@@ -133,18 +126,18 @@ enbinary(L) -> [{list_to_binary(K), list_to_binary(V)} || {K, V} <- L].
 
 -spec hook_tcp_close(req()) -> req().
 hook_tcp_close(R = {cowboy, Req}) ->
-    {ok, T, S} = cowboy_req:transport(Req),
+    [T, S] = cowboy_req:get([transport, socket], Req),
     T:setopts(S,[{active,once}]),
     R.
 
 -spec unhook_tcp_close(req()) -> req().
 unhook_tcp_close(R = {cowboy, Req}) ->
-    {ok, T, S} = cowboy_req:transport(Req),
+    [T, S] = cowboy_req:get([transport, socket], Req),
     T:setopts(S,[{active,false}]),
     R.
 
 -spec abruptly_kill(req()) -> req().
 abruptly_kill(R = {cowboy, Req}) ->
-    {ok, T, S} = cowboy_req:transport(Req),
-    T:close(S),
+    [T, S] = cowboy_req:get([transport, socket], Req),
+    ok = T:close(S),
     R.
