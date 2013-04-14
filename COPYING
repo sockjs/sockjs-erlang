@@ -5,6 +5,8 @@ with the exception of following files:
    from Mochiweb project (https://github.com/mochi/mochiweb) and
    covered by LICENSE-MIT-Mochiweb.
 
+ * src/sockjs_pmod_pt.erl, which is from OTP's release of pmod_transform
+   (https://github.com/erlang/pmod_transform) and covered by LICENSE-EPL-OTP.
+
  * rebar, which is a compiled binary from Rebar project
    (https://github.com/basho/rebar) and covered by LICENSE-APL2-Rebar.
-

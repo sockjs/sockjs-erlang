@@ -1,3 +1,4 @@
+-compile({parse_transform,sockjs_pmod_pt}).
 -module(sockjs_multiplex_channel, [Conn, Topic]).
 
 -export([send/1, close/0, close/2, info/0]).
