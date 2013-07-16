@@ -6,7 +6,8 @@
   {registered, []},
   {applications, [
                   kernel,
-                  stdlib
+                  stdlib,
+                  xmerl
                  ]},
   {mod, { sockjs_app, []}}
  ]}.
