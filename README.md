@@ -28,6 +28,7 @@ like this:
 
 ```erlang
 main(_) ->
+    ok = application:start(xmerl),
     ok = application:start(sockjs),
     ok = application:start(ranch),
     ok = application:start(crypto),
